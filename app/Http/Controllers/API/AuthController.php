@@ -1,0 +1,310 @@
+<?php
+
+namespace App\Http\Controllers\API;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+
+class AuthController extends Controller
+{
+    /**
+     * Connexion de l'utilisateur
+     */
+    /**
+ * Connexion de l'utilisateur
+ */
+public function login(Request $request)
+{
+    try {
+        $validator = Validator::make($request->all(), [
+                'email' => 'required|email',
+                'password' => 'required|string|min:6',
+                'remember' => 'boolean'
+            ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        // Vérifier si l'utilisateur existe
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun compte trouvé avec cet email'
+            ], 401);
+        }
+
+        // Vérifier si le compte est actif
+        if (!$user->est_actif) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Votre compte a été désactivé. Veuillez contacter l\'administrateur.'
+            ], 403);
+        }
+
+        // Vérifier le mot de passe
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mot de passe incorrect'
+            ], 401);
+        }
+
+        // Mettre à jour la dernière connexion - CORRECTION ICI
+        $user->update(['derniere_connexion' => now()]);
+
+        // Créer le token
+        $token = $user->createToken('auth_token', ['*'], $request->remember ? now()->addDays(7) : now()->addDay())->plainTextToken;
+
+        // Charger les permissions en fonction du rôle
+        $permissions = $this->getPermissionsByRole($user->role);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Connexion réussie',
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'nom' => $user->nom,
+                    'prenom' => $user->prenom,
+                    'nom_complet' => $user->nom_complet,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'role_label' => $user->role_label,
+                    'photo' => $user->photo_url,
+                    'initiales' => $user->initiales,
+                    'telephone' => $user->telephone,
+                    'derniere_connexion' => $user->derniere_connexion?->format('d/m/Y H:i')
+                ],
+                'token' => $token,
+                'permissions' => $permissions
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la connexion',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+    /**
+     * Déconnexion
+     */
+    public function logout(Request $request)
+    {
+        try {
+            // Révoquer le token actuel
+            $request->user()->currentAccessToken()->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Déconnexion réussie'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la déconnexion'
+            ], 500);
+        }
+    }
+
+    /**
+     * Déconnexion de tous les appareils
+     */
+    public function logoutAll(Request $request)
+    {
+        try {
+            // Révoquer tous les tokens de l'utilisateur
+            $request->user()->tokens()->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Déconnexion de tous les appareils réussie'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la déconnexion'
+            ], 500);
+        }
+    }
+
+    /**
+     * Rafraîchir le token
+     */
+    public function refresh(Request $request)
+    {
+        try {
+            $user = $request->user();
+            
+            // Révoquer l'ancien token
+            $user->currentAccessToken()->delete();
+            
+            // Créer un nouveau token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'token' => $token
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du rafraîchissement du token'
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupérer l'utilisateur connecté
+     */
+    public function me(Request $request)
+    {
+        try {
+            $user = $request->user();
+            
+            $permissions = $this->getPermissionsByRole($user->role);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'nom' => $user->nom,
+                        'prenom' => $user->prenom,
+                        'nom_complet' => $user->nom_complet,
+                        'email' => $user->email,
+                        'role' => $user->role,
+                        'role_label' => $user->role_label,
+                        'photo' => $user->photo_url,
+                        'initiales' => $user->initiales,
+                        'telephone' => $user->telephone,
+                        'derniere_connexion' => $user->derniere_connexion?->format('d/m/Y H:i')
+                    ],
+                    'permissions' => $permissions
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des informations'
+            ], 500);
+        }
+    }
+
+    /**
+     * Changer le mot de passe
+     */
+    public function changePassword(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'current_password' => 'required|string|min:6',
+                'new_password' => 'required|string|min:6|confirmed',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = $request->user();
+
+            // Vérifier l'ancien mot de passe
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Le mot de passe actuel est incorrect'
+                ], 401);
+            }
+
+            // Mettre à jour le mot de passe
+            $user->password = Hash::make($request->new_password);
+            $user->save();
+
+            // Optionnel: révoquer tous les tokens sauf le courant
+            $user->tokens()->where('id', '!=', $user->currentAccessToken()->id)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Mot de passe modifié avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du changement de mot de passe'
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtenir les permissions en fonction du rôle
+     */
+    private function getPermissionsByRole($role)
+    {
+        $permissions = [
+            'super_admin' => [
+                'dashboard' => ['view', 'manage'],
+                'users' => ['view', 'create', 'edit', 'delete', 'manage'],
+                'messages' => ['view', 'reply', 'delete'],
+                'adhesions' => ['view', 'approve', 'reject', 'delete'],
+                'actualites' => ['view', 'create', 'edit', 'delete', 'publish'],
+                'actions' => ['view', 'create', 'edit', 'delete', 'manage'],
+                'membres' => ['view', 'create', 'edit', 'delete', 'manage'],
+                'partenaires' => ['view', 'create', 'edit', 'delete'],
+                'evenements' => ['view', 'create', 'edit', 'delete'],
+                'projets' => ['view', 'create', 'edit', 'delete'],
+                'documents' => ['view', 'upload', 'delete'],
+                'parametres' => ['view', 'edit']
+            ],
+            'admin' => [
+                'dashboard' => ['view'],
+                'messages' => ['view', 'reply'],
+                'adhesions' => ['view', 'approve', 'reject'],
+                'actualites' => ['view', 'create', 'edit', 'publish'],
+                'actions' => ['view', 'create', 'edit'],
+                'membres' => ['view', 'create', 'edit'],
+                'partenaires' => ['view', 'create', 'edit'],
+                'evenements' => ['view', 'create', 'edit'],
+                'projets' => ['view', 'create', 'edit'],
+                'documents' => ['view', 'upload']
+            ],
+            'moderateur' => [
+                'dashboard' => ['view'],
+                'messages' => ['view'],
+                'adhesions' => ['view'],
+                'actualites' => ['view', 'create'],
+                'actions' => ['view'],
+                'membres' => ['view'],
+                'partenaires' => ['view'],
+                'evenements' => ['view'],
+                'projets' => ['view'],
+                'documents' => ['view']
+            ]
+        ];
+
+        return $permissions[$role] ?? [];
+    }
+}

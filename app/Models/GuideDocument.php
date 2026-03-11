@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class GuideDocument extends Model
+{
+    use HasFactory;
+
+    protected $table = 'guide_documents';
+
+    protected $fillable = [
+        'sous_section_id',
+        'titre',
+        'description',
+        'fichier',
+        'type_fichier',
+        'taille',
+        'telechargements',
+        'statut'
+    ];
+
+    protected $casts = [
+        'telechargements' => 'integer',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime'
+    ];
+
+    /**
+     * Relations
+     */
+    public function sousSection()
+    {
+        return $this->belongsTo(GuideSousSection::class, 'sous_section_id');
+    }
+
+    /**
+     * Accesseurs
+     */
+    public function getFichierUrlAttribute()
+    {
+        return $this->fichier ? asset('storage/' . $this->fichier) : null;
+    }
+
+    public function getTailleFormateeAttribute()
+    {
+        $bytes = $this->taille;
+        $units = ['octets', 'Ko', 'Mo', 'Go'];
+        
+        for ($i = 0; $bytes > 1024; $i++) {
+            $bytes /= 1024;
+        }
+        
+        return round($bytes, 2) . ' ' . $units[$i];
+    }
+}
