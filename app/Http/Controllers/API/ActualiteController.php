@@ -134,7 +134,7 @@ class ActualiteController extends Controller
         $data = $request->except('image');
         
         // Valeurs par défaut
-        $data['auteur'] = 'AJECB';
+        $data['auteur'] = 'AJDCB';
         // Le slug sera généré automatiquement par le modèle
 
         if ($request->hasFile('image')) {

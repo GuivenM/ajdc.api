@@ -17,7 +17,7 @@ return new class extends Migration
             $table->enum('type', ['actualite', 'evenement', 'education', 'culture']);
             $table->datetime('date_evenement')->nullable();
             $table->string('lieu_evenement')->nullable();
-            $table->string('auteur')->default('AJECB');
+            $table->string('auteur')->default('AJDCB');
             $table->enum('statut', ['publie', 'brouillon'])->default('publie');
             $table->timestamps();
         });

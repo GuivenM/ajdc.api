@@ -49,21 +49,46 @@ class ImageController extends Controller
 
     /**
      * Méthode générique pour toutes les images
+     *
+     * ATTENTION SÉCURITÉ : l'ancienne version faisait
+     * str_replace(['../', './'], '', $path), qui est un filtre bien connu et
+     * contournable (ex: '..././' redevient '../' après un seul passage de
+     * remplacement), ce qui permettait potentiellement de sortir du dossier
+     * storage/app/public et de lire n'importe quel fichier lisible par PHP.
+     * On résout désormais le chemin réel et on vérifie qu'il reste bien
+     * contenu dans le dossier public du disque de stockage.
      */
     public function get($path)
     {
         try {
-            // Nettoyer le chemin
-            $cleanPath = str_replace(['../', './'], '', $path);
-            $fullPath = 'public/' . $cleanPath;
-            
-            if (!Storage::exists($fullPath)) {
+            $disk = Storage::disk('local');
+            $baseDir = realpath($disk->path('public'));
+
+            if ($baseDir === false) {
                 abort(404);
             }
-            
-            $file = Storage::get($fullPath);
-            $mimeType = Storage::mimeType($fullPath);
-            
+
+            $requestedPath = $disk->path('public/' . $path);
+            $realRequestedPath = realpath($requestedPath);
+
+            // Le chemin résolu doit exister ET rester strictement à l'intérieur
+            // du dossier public autorisé.
+            if (
+                $realRequestedPath === false ||
+                !str_starts_with($realRequestedPath, $baseDir . DIRECTORY_SEPARATOR)
+            ) {
+                abort(404);
+            }
+
+            $relativePath = 'public/' . ltrim(str_replace($baseDir, '', $realRequestedPath), DIRECTORY_SEPARATOR);
+
+            if (!Storage::exists($relativePath)) {
+                abort(404);
+            }
+
+            $file = Storage::get($relativePath);
+            $mimeType = Storage::mimeType($relativePath);
+
             return response($file, 200)
                 ->header('Content-Type', $mimeType)
                 ->header('Access-Control-Allow-Origin', '*')

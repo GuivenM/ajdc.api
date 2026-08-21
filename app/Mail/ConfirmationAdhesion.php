@@ -23,7 +23,7 @@ class ConfirmationAdhesion extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Confirmation de votre demande d\'adhésion - AJECB',
+            subject: 'Confirmation de votre demande d\'adhésion - AJDCB',
         );
     }
 

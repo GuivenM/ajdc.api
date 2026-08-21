@@ -30,7 +30,7 @@ class NotificationNouveauMessage extends Mailable
             'autre' => '📝 Autre'
         ];
 
-        return $this->subject('📬 Nouveau message de contact - AJECB')
+        return $this->subject('📬 Nouveau message de contact - AJDCB')
                     ->view('emails.nouveau-message')
                     ->with([
                         'nom' => $this->message->nom,

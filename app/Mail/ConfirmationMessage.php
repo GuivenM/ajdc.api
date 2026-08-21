@@ -23,7 +23,7 @@ class ConfirmationMessage extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Confirmation de réception de votre message - AJECB',
+            subject: 'Confirmation de réception de votre message - AJDCB',
         );
     }
 

@@ -15,7 +15,7 @@ use App\Http\Controllers\ImageController;
 Route::get('/test', function() {
     return response()->json([
         'success' => true,
-        'message' => 'API AJECB fonctionne correctement',
+        'message' => 'API AJDCB fonctionne correctement',
         'version' => '1.0.0',
         'timestamp' => now()->toDateTimeString()
     ]);
@@ -57,7 +57,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/membres/{id}', [MembreController::class, 'show']);
 });
 
-// routes/api.php
+// Détail d'une adhésion (PUBLIC — ex : page de suivi de candidature par lien direct)
 Route::get('/adhesions/{id}/details', [AdhesionController::class, 'show']);
 
 // Routes pour les images (PUBLIQUES - sans authentification)
@@ -66,13 +66,10 @@ Route::prefix('images')->group(function () {
     Route::get('/{path}', [ImageController::class, 'get'])->where('path', '.*');
 });
 
- Route::get('/statistiques', [ActionController::class, 'statistiques']);
-         Route::get('/statistiques', [MessageController::class, 'statistiques']);
 // ==================== ROUTES PROTÉGÉES (NÉCESSITENT AUTH) ====================
-// ==================== ROUTES PROTÉGÉES ====================
-// ==================== ROUTES PROTÉGÉES ====================
+// Rôles disponibles : super_admin, admin, moderateur (voir AuthController::getPermissionsByRole)
 Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
-    
+
     // Auth supplémentaires
     Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -81,60 +78,69 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/change-password', [AuthController::class, 'changePassword']);
     });
-    
-    // ========== MESSAGES - ORDRE CORRECT ==========
+
+    // ========== MESSAGES ==========
+    // Lecture : les 3 rôles. Répondre : admin/super_admin. Supprimer : super_admin uniquement.
     Route::prefix('messages')->group(function () {
-        // 1. ROUTES SPÉCIFIQUES (sans paramètre) - EN PREMIER
- // ← À METTRE EN PREMIER
         Route::get('/', [MessageController::class, 'index']);
-        Route::post('/', [MessageController::class, 'store']);
-        
-        // 2. ROUTES AVEC PARAMÈTRES - EN SECOND
+        Route::get('/statistiques', [MessageController::class, 'statistiques']);
         Route::get('/{id}', [MessageController::class, 'show']);
-        Route::put('/{id}', [MessageController::class, 'update']);
-        Route::delete('/{id}', [MessageController::class, 'destroy']);
-        Route::post('/{id}/repondre', [MessageController::class, 'repondre']);
+        Route::put('/{id}', [MessageController::class, 'update'])
+            ->middleware('role:super_admin,admin');
+        Route::post('/{id}/repondre', [MessageController::class, 'repondre'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/{id}', [MessageController::class, 'destroy'])
+            ->middleware('role:super_admin');
     });
-    
-    // ========== ACTIONS - MÊME LOGIQUE ==========
+
+    // ========== ACTUALITÉS ==========
+    // Lecture : les 3 rôles. Créer : moderateur/admin/super_admin. Modifier : admin/super_admin.
+    // Supprimer : super_admin uniquement.
+    Route::prefix('actualites')->group(function () {
+        Route::get('/statistiques', [ActualiteController::class, 'statistiques']);
+        Route::post('/', [ActualiteController::class, 'store'])
+            ->middleware('role:super_admin,admin,moderateur');
+        Route::put('/{id}', [ActualiteController::class, 'update'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/{id}', [ActualiteController::class, 'destroy'])
+            ->middleware('role:super_admin');
+    });
+
+    // ========== ACTIONS ==========
+    // Lecture : les 3 rôles (déjà publique). Créer/modifier : admin/super_admin.
+    // Supprimer : super_admin uniquement.
     Route::prefix('actions')->group(function () {
-        // 1. ROUTES SPÉCIFIQUES D'ABORD
-       
-        Route::get('/section/{section}', [ActionController::class, 'getBySection']);
-        Route::get('/', [ActionController::class, 'index']);
-        Route::post('/', [ActionController::class, 'store']);
-        
-        // 2. ROUTES AVEC PARAMÈTRES ENSUITE
-        Route::get('/{id}', [ActionController::class, 'show']);
-        Route::post('/{id}', [ActionController::class, 'update']);
-        Route::delete('/{id}', [ActionController::class, 'destroy']);
+        Route::get('/statistiques', [ActionController::class, 'statistiques']);
+        Route::post('/', [ActionController::class, 'store'])
+            ->middleware('role:super_admin,admin');
+        Route::post('/{id}', [ActionController::class, 'update'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/{id}', [ActionController::class, 'destroy'])
+            ->middleware('role:super_admin');
     });
-    
+
     // ========== ADHÉSIONS ==========
+    // Lecture : les 3 rôles. Traiter (approuver/rejeter) : admin/super_admin.
+    // Supprimer : super_admin uniquement.
     Route::prefix('adhesions')->group(function () {
-        // 1. SPÉCIFIQUES D'ABORD
         Route::get('/statistiques', [AdhesionController::class, 'statistiques']);
         Route::get('/', [AdhesionController::class, 'index']);
-        
-        // 2. AVEC PARAMÈTRES ENSUITE
         Route::get('/{id}', [AdhesionController::class, 'show']);
-        Route::put('/{id}/traiter', [AdhesionController::class, 'traiter']);
-        Route::delete('/{id}', [AdhesionController::class, 'destroy']);
+        Route::put('/{id}/traiter', [AdhesionController::class, 'traiter'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/{id}', [AdhesionController::class, 'destroy'])
+            ->middleware('role:super_admin');
     });
-    
+
     // ========== MEMBRES ==========
+    // Lecture (bureau, commissions, etc.) : déjà publique. Créer/modifier : admin/super_admin.
+    // Supprimer : super_admin uniquement.
     Route::prefix('membres')->group(function () {
-        // 1. SPÉCIFIQUES D'ABORD
-        Route::get('/bureau', [MembreController::class, 'bureau']);
-        Route::get('/commissions', [MembreController::class, 'commissions']);
-        Route::get('/postes-bureau', [MembreController::class, 'postesBureau']);
-        Route::get('/commission/{nom}', [MembreController::class, 'commission']);
-        Route::get('/', [MembreController::class, 'index']);
-        Route::post('/', [MembreController::class, 'store']);
-        
-        // 2. AVEC PARAMÈTRES ENSUITE
-        Route::get('/{id}', [MembreController::class, 'show']);
-        Route::put('/{id}', [MembreController::class, 'update']);
-        Route::delete('/{id}', [MembreController::class, 'destroy']);
+        Route::post('/', [MembreController::class, 'store'])
+            ->middleware('role:super_admin,admin');
+        Route::put('/{id}', [MembreController::class, 'update'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/{id}', [MembreController::class, 'destroy'])
+            ->middleware('role:super_admin');
     });
 });

@@ -23,8 +23,8 @@ class NotificationTraitementAdhesion extends Mailable
     public function envelope(): Envelope
     {
         $sujet = $this->adhesion->statut === 'approuvee' 
-            ? 'Votre adhésion à l\'AJECB a été approuvée' 
-            : 'Statut de votre demande d\'adhésion à l\'AJECB';
+            ? 'Votre adhésion à l\'AJDCB a été approuvée' 
+            : 'Statut de votre demande d\'adhésion à l\'AJDCB';
 
         return new Envelope(
             subject: $sujet,

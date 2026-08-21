@@ -46,14 +46,14 @@
 </head>
 <body>
     <div class="header">
-        <h1>Association des Jeunes Élites Congolaises au Bénin</h1>
+        <h1>Association des Jeunes de la Diaspora Congolaise au Bénin</h1>
         <p style="color: #17a2b8; font-style: italic;">Solidarité - Réflexion - Action</p>
     </div>
 
     <div class="content">
         <h2>Bonjour {{ $adhesion->prenom }} {{ $adhesion->nom }},</h2>
         
-        <p><strong>Votre demande d'adhésion à l'AJECB a bien été reçue !</strong></p>
+        <p><strong>Votre demande d'adhésion à l'AJDCB a bien été reçue !</strong></p>
 
         <div class="info-box">
             <h3>Récapitulatif de votre demande :</h3>
@@ -78,18 +78,18 @@
             <strong>Étape 3 :</strong> Si votre candidature est retenue, vous serez invité à une réunion d'intégration
         </div>
 
-        <p><strong>Numéro de suivi :</strong> AJECB-{{ $adhesion->id }}-{{ $adhesion->created_at->format('Ymd') }}</p>
+        <p><strong>Numéro de suivi :</strong> AJDCB-{{ $adhesion->id }}-{{ $adhesion->created_at->format('Ymd') }}</p>
 
         <p>Nous vous remercions pour votre intérêt et votre engagement envers la communauté congolaise au Bénin.</p>
 
         <p>Solidaires,</p>
-        <p><strong>Le Bureau Exécutif de l'AJECB</strong></p>
+        <p><strong>Le Bureau Exécutif de l'AJDCB</strong></p>
     </div>
 
     <div class="footer">
-        <p>Association des Jeunes Élites Congolaises au Bénin (AJECB)</p>
+        <p>Association des Jeunes de la Diaspora Congolaise au Bénin (AJDCB)</p>
         <p>Cotonou - République du Bénin</p>
-        <p>Email: contact@ajecb.org | Tél: +229 00 00 00 00</p>
+        <p>Email: contact@ajdcb.org | Tél: +229 01 66 24 62 68</p>
     </div>
 </body>
 </html>

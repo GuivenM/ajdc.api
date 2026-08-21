@@ -45,7 +45,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>Association des Jeunes Élites Congolaises au Bénin</h1>
+        <h1>Association des Jeunes de la Diaspora Congolaise au Bénin</h1>
         <p style="color: #28a745; font-style: italic;">Solidarité - Réflexion - Action</p>
     </div>
 
@@ -56,7 +56,7 @@
         <p>Suite à votre message du {{ $messageData->created_at->format('d/m/Y') }}, voici notre réponse :</p>
 
         <div class="reponse-box">
-            <h3>Réponse de l'AJECB :</h3>
+            <h3>Réponse de l'AJDCB :</h3>
             <p>{{ $reponse }}</p>
         </div>
 
@@ -64,14 +64,14 @@
 
         <div class="signature">
             <p>Cordialement,</p>
-            <p><strong>L'équipe AJECB</strong></p>
+            <p><strong>L'équipe AJDCB</strong></p>
         </div>
     </div>
 
     <div class="footer">
-        <p>Association des Jeunes Élites Congolaises au Bénin (AJECB)</p>
+        <p>Association des Jeunes de la Diaspora Congolaise au Bénin (AJDCB)</p>
         <p>Cotonou - République du Bénin</p>
-        <p>Email: contact@ajecb.org | Tél: +229 00 00 00 00</p>
+        <p>Email: contact@ajdcb.org | Tél: +229 01 66 24 62 68</p>
     </div>
 </body>
 </html>

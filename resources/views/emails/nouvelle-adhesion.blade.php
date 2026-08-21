@@ -136,7 +136,7 @@
 
             <p style="font-size: 18px; margin-bottom: 25px; text-align: center;">
                 Une nouvelle personne souhaite rejoindre l'association 
-                <strong class="highlight">AJECB</strong>
+                <strong class="highlight">AJDCB</strong>
             </p>
 
             <div class="info-card">
@@ -190,7 +190,7 @@
             <div class="footer">
                 <p style="margin: 0;">
                     Cet email a été envoyé automatiquement suite à une nouvelle demande d'adhésion.<br>
-                    © {{ date('Y') }} AJECB - Tous droits réservés
+                    © {{ date('Y') }} AJDCB - Tous droits réservés
                 </p>
             </div>
         </div>

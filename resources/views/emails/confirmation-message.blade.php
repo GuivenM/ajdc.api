@@ -56,14 +56,14 @@
 </head>
 <body>
     <div class="header">
-        <h1>Association des Jeunes Élites Congolaises au Bénin</h1>
+        <h1>Association des Jeunes de la Diaspora Congolaise au Bénin</h1>
         <p style="color: #007bff; font-style: italic;">Solidarité - Réflexion - Action</p>
     </div>
 
     <div class="content">
         <h2>Bonjour {{ $message->prenom }} {{ $message->nom }},</h2>
         
-        <p>Nous vous remercions d'avoir contacté l'AJECB. Votre message a bien été reçu et sera traité dans les plus brefs délais.</p>
+        <p>Nous vous remercions d'avoir contacté l'AJDCB. Votre message a bien été reçu et sera traité dans les plus brefs délais.</p>
 
         <div class="message-box">
             <h3>Récapitulatif de votre message :</h3>
@@ -89,17 +89,17 @@
             <li>Consulter notre guide du Congolais au Bénin</li>
         </ul>
 
-        <a href="https://ajecb.org" class="btn">Visiter notre site</a>
+        <a href="https://ajdcb.org" class="btn">Visiter notre site</a>
 
         <p>Solidaires,</p>
-        <p><strong>L'équipe AJECB</strong></p>
+        <p><strong>L'équipe AJDCB</strong></p>
     </div>
 
     <div class="footer">
-        <p>Association des Jeunes Élites Congolaises au Bénin (AJECB)</p>
+        <p>Association des Jeunes de la Diaspora Congolaise au Bénin (AJDCB)</p>
         <p>Cotonou - République du Bénin</p>
-        <p>Email: contact@ajecb.org | Tél: +229 00 00 00 00</p>
-        <p>&copy; {{ date('Y') }} AJECB. Tous droits réservés.</p>
+        <p>Email: contact@ajdcb.org | Tél: +229 01 66 24 62 68</p>
+        <p>&copy; {{ date('Y') }} AJDCB. Tous droits réservés.</p>
     </div>
 </body>
 </html>

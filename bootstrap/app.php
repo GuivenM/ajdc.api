@@ -12,7 +12,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // app/Http/Kernel.php n'est plus utilisé depuis Laravel 11 (structure
+        // basée sur bootstrap/app.php) : les alias 'admin' et 'role' qui y
+        // étaient déclarés n'étaient donc jamais réellement enregistrés, et
+        // aucune route ne les utilisait. On les déclare ici pour de vrai.
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'role' => \App\Http\Middleware\CheckRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

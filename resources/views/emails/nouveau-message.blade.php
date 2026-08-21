@@ -225,7 +225,7 @@
             <div class="footer">
                 <p style="margin: 0;">
                     Cet email a été envoyé automatiquement suite à un nouveau message sur le site.<br>
-                    © {{ date('Y') }} AJECB - Tous droits réservés
+                    © {{ date('Y') }} AJDCB - Tous droits réservés
                 </p>
             </div>
         </div>

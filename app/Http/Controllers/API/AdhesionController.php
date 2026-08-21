@@ -86,7 +86,11 @@ class AdhesionController extends Controller
                 ], 422);
             }
 
-            $adhesion = Adhesion::create($request->all());
+            // IMPORTANT : on n'utilise QUE les champs validés (jamais $request->all()).
+            // 'statut', 'date_traitement' et 'traite_par' sont fillable sur le modèle
+            // mais ne doivent JAMAIS pouvoir être fixés par un appelant public, sinon
+            // n'importe qui peut auto-approuver sa propre demande d'adhésion.
+            $adhesion = Adhesion::create($validator->validated());
 
             // Envoyer email de confirmation au candidat
             try {
@@ -99,7 +103,7 @@ class AdhesionController extends Controller
             try {
                 $adminEmail = config('mail.admin_address');
                 if (!$adminEmail) {
-                    $adminEmail = 'admin@ajecb.com';
+                    $adminEmail = 'contact@ajdcb.org';
                 }
                 Mail::to($adminEmail)->send(new NotificationNouvelleAdhesion($adhesion));
             } catch (\Exception $e) {
@@ -291,7 +295,7 @@ class AdhesionController extends Controller
             
             $adhesions = $query->orderBy('created_at', 'desc')->get();
             
-            $filename = "adhesions_ajecb_" . now()->format('Y-m-d') . ".csv";
+            $filename = "adhesions_ajdcb_" . now()->format('Y-m-d') . ".csv";
             $handle = fopen('php://temp', 'w');
             
             // En-têtes CSV

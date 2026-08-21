@@ -21,7 +21,7 @@ class NotificationNouvelleAdhesion extends Mailable
 
     public function build()
     {
-        return $this->subject('Nouvelle demande d\'adhésion - AJECB')
+        return $this->subject('Nouvelle demande d\'adhésion - AJDCB')
                     ->markdown('emails.nouvelle-adhesion')
                     ->with([
                         'nom' => $this->adhesion->nom,

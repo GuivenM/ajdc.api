@@ -81,7 +81,10 @@ class MessageController extends Controller
                 ], 422);
             }
 
-            $message = Message::create($request->all());
+            // IMPORTANT : uniquement les champs validés. 'statut', 'reponse' et
+            // 'traite_par' sont fillable sur le modèle mais ne doivent jamais être
+            // fixables par un appelant public (route non authentifiée).
+            $message = Message::create($validator->validated());
 
             // Envoyer email de confirmation à l'utilisateur
             try {
@@ -94,7 +97,7 @@ class MessageController extends Controller
             try {
                 $adminEmail = config('mail.admin_address');
                 if (!$adminEmail) {
-                    $adminEmail = 'admin@ajecb.com';
+                    $adminEmail = 'contact@ajdcb.org';
                 }
                 Mail::to($adminEmail)->send(new NotificationNouveauMessage($message));
             } catch (\Exception $e) {
@@ -178,7 +181,7 @@ class MessageController extends Controller
                 Mail::to($message->email)->send(new ReponseMessage(
                     $message, 
                     $request->reponse,
-                    $request->objet ?: 'Réponse à votre message - AJECB'
+                    $request->objet ?: 'Réponse à votre message - AJDCB'
                 ));
                 
                 // Mettre à jour le statut du message
