@@ -63,6 +63,10 @@ class Evenement extends Model
         return $this->belongsToMany(Partenaire::class, 'partenaires_evenements');
     }
 
+    // ATTENTION : la classe App\Models\EvenementMedia n'existe pas dans ce
+    // projet. Cette relation lèvera une erreur "Class not found" si elle est
+    // appelée. Créez le modèle + la migration correspondante (galerie photos
+    // de l'événement) avant d'utiliser ->galerie(), ou retirez cette méthode.
     public function galerie()
     {
         return $this->hasMany(EvenementMedia::class);

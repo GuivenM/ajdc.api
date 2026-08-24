@@ -7,6 +7,9 @@ use App\Http\Controllers\API\ActualiteController;
 use App\Http\Controllers\API\AdhesionController;
 use App\Http\Controllers\API\MembreController;
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\EvenementController;
+use App\Http\Controllers\API\GuideController;
+use App\Http\Controllers\API\PartenaireController;
 use App\Http\Controllers\ImageController;
 
 // ==================== ROUTES PUBLIQUES ====================
@@ -55,6 +58,19 @@ Route::prefix('v1')->group(function () {
     Route::get('/membres/commission/{nom}', [MembreController::class, 'commission']);
     Route::get('/membres/postes-bureau', [MembreController::class, 'postesBureau']);
     Route::get('/membres/{id}', [MembreController::class, 'show']);
+
+    // Événements - Routes publiques (consultation)
+    Route::get('/evenements', [EvenementController::class, 'index']);
+    Route::get('/evenements/{id}', [EvenementController::class, 'show']);
+
+    // Guide - Routes publiques (arborescence sections > sous-sections > documents)
+    Route::get('/guide', [GuideController::class, 'index']);
+    Route::get('/guide/sections/{id}', [GuideController::class, 'showSection']);
+    Route::post('/guide/documents/{id}/telecharger', [GuideController::class, 'telechargerDocument']);
+
+    // Partenaires - Routes publiques (consultation)
+    Route::get('/partenaires', [PartenaireController::class, 'index']);
+    Route::get('/partenaires/{id}', [PartenaireController::class, 'show']);
 });
 
 // Détail d'une adhésion (PUBLIC — ex : page de suivi de candidature par lien direct)
@@ -141,6 +157,60 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::put('/{id}', [MembreController::class, 'update'])
             ->middleware('role:super_admin,admin');
         Route::delete('/{id}', [MembreController::class, 'destroy'])
+            ->middleware('role:super_admin');
+    });
+
+    // ========== ÉVÉNEMENTS ==========
+    // Lecture : déjà publique. Créer/modifier : admin/super_admin. Supprimer : super_admin uniquement.
+    Route::prefix('evenements')->group(function () {
+        Route::get('/statistiques', [EvenementController::class, 'statistiques'])
+            ->middleware('role:super_admin,admin');
+        Route::post('/', [EvenementController::class, 'store'])
+            ->middleware('role:super_admin,admin');
+        Route::put('/{id}', [EvenementController::class, 'update'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/{id}', [EvenementController::class, 'destroy'])
+            ->middleware('role:super_admin');
+    });
+
+    // ========== GUIDE ==========
+    // Lecture : déjà publique (y compris brouillons via ?all=1, réservé à l'admin
+    // côté frontend). Créer/modifier/supprimer : admin/super_admin pour tout niveau
+    // de la hiérarchie (sections, sous-sections, documents).
+    Route::prefix('guide')->group(function () {
+        Route::post('/sections', [GuideController::class, 'storeSection'])
+            ->middleware('role:super_admin,admin');
+        Route::put('/sections/{id}', [GuideController::class, 'updateSection'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/sections/{id}', [GuideController::class, 'destroySection'])
+            ->middleware('role:super_admin');
+
+        Route::post('/sous-sections', [GuideController::class, 'storeSousSection'])
+            ->middleware('role:super_admin,admin');
+        Route::put('/sous-sections/{id}', [GuideController::class, 'updateSousSection'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/sous-sections/{id}', [GuideController::class, 'destroySousSection'])
+            ->middleware('role:super_admin');
+
+        Route::post('/documents', [GuideController::class, 'storeDocument'])
+            ->middleware('role:super_admin,admin');
+        Route::post('/documents/{id}', [GuideController::class, 'updateDocument'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/documents/{id}', [GuideController::class, 'destroyDocument'])
+            ->middleware('role:super_admin');
+    });
+
+    // ========== PARTENAIRES ==========
+    // Lecture : déjà publique (partenaires actifs uniquement, sauf filtre explicite).
+    // Créer/modifier : admin/super_admin. Supprimer : super_admin uniquement.
+    Route::prefix('partenaires')->group(function () {
+        Route::get('/statistiques', [PartenaireController::class, 'statistiques'])
+            ->middleware('role:super_admin,admin');
+        Route::post('/', [PartenaireController::class, 'store'])
+            ->middleware('role:super_admin,admin');
+        Route::put('/{id}', [PartenaireController::class, 'update'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/{id}', [PartenaireController::class, 'destroy'])
             ->middleware('role:super_admin');
     });
 });

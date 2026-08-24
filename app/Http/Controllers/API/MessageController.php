@@ -108,7 +108,7 @@ class MessageController extends Controller
                 'success' => true,
                 'message' => 'Message envoyé avec succès. Un email de confirmation vous a été envoyé.',
                 'data' => $message,
-                'redirect_url' => 'http://localhost:5173/admin/messages/' . $message->id
+                'redirect_url' => config('app.frontend_url') . '/admin/messages/' . $message->id
             ], 201);
             
         } catch (\Exception $e) {
@@ -144,7 +144,7 @@ class MessageController extends Controller
                 'success' => true,
                 'message' => 'Statut mis à jour avec succès',
                 'data' => $message,
-                'redirect_url' => 'http://localhost:5173/admin/messages/' . $id
+                'redirect_url' => config('app.frontend_url') . '/admin/messages/' . $id
             ], 200);
             
         } catch (\Exception $e) {
@@ -194,7 +194,7 @@ class MessageController extends Controller
                     'success' => true,
                     'message' => 'Réponse envoyée avec succès',
                     'data' => $message,
-                    'redirect_url' => 'http://localhost:5173/admin/messages/' . $id
+                    'redirect_url' => config('app.frontend_url') . '/admin/messages/' . $id
                 ], 200);
                 
             } catch (\Exception $e) {
@@ -226,7 +226,7 @@ class MessageController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Message supprimé avec succès',
-                'redirect_url' => 'http://localhost:5173/admin/messages'
+                'redirect_url' => config('app.frontend_url') . '/admin/messages'
             ], 200);
             
         } catch (\Exception $e) {
@@ -257,7 +257,7 @@ class MessageController extends Controller
                 'success' => true,
                 'message' => 'Message marqué comme lu',
                 'data' => $message,
-                'redirect_url' => 'http://localhost:5173/admin/messages/' . $id
+                'redirect_url' => config('app.frontend_url') . '/admin/messages/' . $id
             ], 200);
             
         } catch (\Exception $e) {

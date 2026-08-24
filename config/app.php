@@ -125,4 +125,19 @@ return [
 
     
 
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | Base URL of the admin frontend (React app). Used to build links inside
+    | notification emails (e.g. "view this message in the back-office").
+    | Avant : cette URL était codée en dur ('http://localhost:5173') dans
+    | plusieurs contrôleurs et mailables, ce qui aurait pointé vers le poste
+    | de dev de n'importe qui en production.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+
 ];

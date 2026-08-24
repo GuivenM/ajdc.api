@@ -114,7 +114,7 @@ class AdhesionController extends Controller
                 'success' => true,
                 'message' => 'Demande d\'adhésion soumise avec succès. Un email de confirmation vous a été envoyé.',
                 'data' => $adhesion,
-                'redirect_url' => 'http://localhost:5173/admin/adhesions/' . $adhesion->id
+                'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
             ], 201);
             
         } catch (\Exception $e) {
@@ -168,7 +168,7 @@ class AdhesionController extends Controller
                 'success' => true,
                 'message' => $message,
                 'data' => $adhesion,
-                'redirect_url' => 'http://localhost:5173/admin/adhesions/' . $adhesion->id
+                'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
             ], 200);
             
         } catch (\Exception $e) {
@@ -211,7 +211,7 @@ class AdhesionController extends Controller
                 'success' => true,
                 'message' => 'Demande approuvée avec succès',
                 'data' => $adhesion,
-                'redirect_url' => 'http://localhost:5173/admin/adhesions/' . $adhesion->id
+                'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
             ], 200);
             
         } catch (\Exception $e) {
@@ -266,7 +266,7 @@ class AdhesionController extends Controller
                 'success' => true,
                 'message' => 'Demande rejetée avec succès',
                 'data' => $adhesion,
-                'redirect_url' => 'http://localhost:5173/admin/adhesions/' . $adhesion->id
+                'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
             ], 200);
             
         } catch (\Exception $e) {

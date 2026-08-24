@@ -41,6 +41,10 @@ class Partenaire extends Model
     /**
      * Relations
      */
+    // ATTENTION : la classe App\Models\Projet et la table pivot
+    // 'partenaires_projets' n'existent pas dans ce projet. Cette relation
+    // lèvera une erreur si elle est appelée. Créez le module "Projets" avant
+    // d'utiliser ->projets(), ou retirez cette méthode.
     public function projets()
     {
         return $this->belongsToMany(Projet::class, 'partenaires_projets');
