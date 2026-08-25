@@ -91,6 +91,33 @@ class MembreController extends Controller
     }
 
     /**
+     * Afficher TOUS les membres, actifs et inactifs (réservé à l'espace admin).
+     * La route publique /membres ne renvoie que les membres actifs.
+     */
+    public function tous()
+    {
+        try {
+            $membres = Membre::orderByRaw('CASE
+                    WHEN poste IS NOT NULL THEN 1
+                    WHEN commission IS NOT NULL THEN 2
+                    ELSE 3
+                END')
+                ->orderBy('nom')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $membres
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des membres'
+            ], 500);
+        }
+    }
+
+    /**
      * Ajouter un nouveau membre
      */
     public function store(Request $request)

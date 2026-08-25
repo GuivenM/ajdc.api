@@ -149,6 +149,9 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     });
 
     // ========== MEMBRES ==========
+    // Lecture de TOUS les membres (actifs + inactifs), réservé à l'espace admin.
+    Route::get('/membres-admin/tous', [MembreController::class, 'tous']);
+
     // Lecture (bureau, commissions, etc.) : déjà publique. Créer/modifier : admin/super_admin.
     // Supprimer : super_admin uniquement.
     Route::prefix('membres')->group(function () {
