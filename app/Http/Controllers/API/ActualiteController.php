@@ -118,7 +118,7 @@ class ActualiteController extends Controller
             'description' => 'required|string',
             'contenu' => 'required|string',
             'type' => 'required|in:actualite,evenement,education,culture',
-           'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
+           'image' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
             'date_evenement' => 'nullable|date',
             'lieu_evenement' => 'nullable|string|max:255',
             'statut' => 'sometimes|in:publie,brouillon'
@@ -171,7 +171,7 @@ class ActualiteController extends Controller
                 'description' => 'sometimes|string',
                 'contenu' => 'sometimes|string',
                 'type' => 'sometimes|in:actualite,evenement,education,culture',
-                'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
                 'date_evenement' => 'nullable|date',
                 'lieu_evenement' => 'nullable|string|max:255',
                 'statut' => 'sometimes|in:publie,brouillon'

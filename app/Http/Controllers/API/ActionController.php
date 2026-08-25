@@ -94,7 +94,7 @@ class ActionController extends Controller
                 'titre' => 'required|string|max:255',
                 'description' => 'required|string',
                 'section' => 'required|in:solidarite,education,culture,communication',
-                'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
                 'date_debut' => 'nullable|date',
                 'date_fin' => 'nullable|date|after_or_equal:date_debut',
                 'date_evenement' => 'nullable|date',
@@ -120,16 +120,10 @@ class ActionController extends Controller
                 $data['image'] = str_replace('public/', '', $path);
             }
 
-            // Gérer les tableaux JSON
-            if ($request->has('objectifs')) {
-                $data['objectifs'] = json_encode($request->objectifs);
-            }
-            if ($request->has('activites_cles')) {
-                $data['activites_cles'] = json_encode($request->activites_cles);
-            }
-            if ($request->has('resultats')) {
-                $data['resultats'] = json_encode($request->resultats);
-            }
+            // Les champs objectifs / activites_cles / resultats sont castés en
+            // 'array' sur le modèle Action : Eloquent se charge de l'encodage
+            // JSON automatiquement, inutile (et incorrect) de le faire ici.
+
 
             $action = Action::create($data);
 
@@ -160,7 +154,7 @@ class ActionController extends Controller
                 'titre' => 'sometimes|string|max:255',
                 'description' => 'sometimes|string',
                 'section' => 'sometimes|in:solidarite,education,culture,communication',
-                'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
                 'date_debut' => 'nullable|date',
                 'date_fin' => 'nullable|date|after_or_equal:date_debut',
                 'date_evenement' => 'nullable|date',
