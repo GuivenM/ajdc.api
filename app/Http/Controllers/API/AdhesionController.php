@@ -278,8 +278,60 @@ class AdhesionController extends Controller
         }
     }
 
-    // ... (les autres méthodes restent identiques)
+    /**
+     * Statistiques des demandes d'adhésion
+     */
+    public function statistiques()
+    {
+        try {
+            $stats = [
+                'total' => Adhesion::count(),
+                'en_attente' => Adhesion::where('statut', 'en_attente')->count(),
+                'approuvees' => Adhesion::where('statut', 'approuvee')->count(),
+                'rejetees' => Adhesion::where('statut', 'rejetee')->count(),
+                'par_ville' => Adhesion::selectRaw('ville, count(*) as total')
+                    ->groupBy('ville')
+                    ->orderByDesc('total')
+                    ->limit(10)
+                    ->get(),
+            ];
 
+            return response()->json([
+                'success' => true,
+                'data' => $stats
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du calcul des statistiques',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Supprimer une demande d'adhésion
+     */
+    public function destroy($id)
+    {
+        try {
+            $adhesion = Adhesion::findOrFail($id);
+            $adhesion->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Demande supprimée avec succès'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression de la demande',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 
     /**
      * Exporter les demandes en CSV
