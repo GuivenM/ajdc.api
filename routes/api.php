@@ -6,6 +6,7 @@ use App\Http\Controllers\API\ActionController;
 use App\Http\Controllers\API\ActualiteController;
 use App\Http\Controllers\API\AdhesionController;
 use App\Http\Controllers\API\MembreController;
+use App\Http\Controllers\API\CotisationController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\EvenementController;
 use App\Http\Controllers\API\GuideController;
@@ -146,6 +147,17 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
             ->middleware('role:super_admin,admin');
         Route::delete('/{id}', [AdhesionController::class, 'destroy'])
             ->middleware('role:super_admin');
+    });
+
+    // ========== COTISATIONS ==========
+    // Données financières internes : lecture réservée aux comptes admin (pas de route publique).
+    // Marquer payé/impayé : admin/super_admin uniquement.
+    Route::prefix('cotisations')->group(function () {
+        Route::get('/', [CotisationController::class, 'index']);
+        Route::get('/statistiques', [CotisationController::class, 'statistiques']);
+        Route::get('/membre/{id}', [CotisationController::class, 'historiqueMembre']);
+        Route::post('/marquer', [CotisationController::class, 'marquer'])
+            ->middleware('role:super_admin,admin');
     });
 
     // ========== MEMBRES ==========

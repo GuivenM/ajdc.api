@@ -53,6 +53,14 @@ class Membre extends Model
     }
 
     /**
+     * Relations
+     */
+    public function cotisations()
+    {
+        return $this->hasMany(Cotisation::class);
+    }
+
+    /**
      * Scopes
      */
     public function scopeActif($query)
