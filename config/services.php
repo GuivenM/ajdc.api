@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'fedapay' => [
+        // 'sandbox' ou 'live'
+        'environment' => env('FEDAPAY_ENVIRONMENT', 'sandbox'),
+        'secret_key' => env('FEDAPAY_SECRET_KEY'),
+        'public_key' => env('FEDAPAY_PUBLIC_KEY'),
+        // Secret du endpoint webhook (dashboard FedaPay > Webhooks), pas la clé API.
+        'webhook_secret' => env('FEDAPAY_WEBHOOK_SECRET'),
+        // Page du site où FedaPay redirige le client après paiement.
+        'callback_url' => env('FEDAPAY_CALLBACK_URL', env('FRONTEND_URL', 'http://localhost:5173') . '/paiement/retour'),
+    ],
+
 ];

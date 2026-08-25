@@ -1,0 +1,523 @@
+diff --git a/app/Http/Controllers/API/PaiementController.php b/app/Http/Controllers/API/PaiementController.php
+new file mode 100644
+index 0000000..9ee78eb
+--- /dev/null
++++ b/app/Http/Controllers/API/PaiementController.php
+@@ -0,0 +1,252 @@
++<?php
++
++namespace App\Http\Controllers\API;
++
++use App\Http\Controllers\Controller;
++use App\Models\Cotisation;
++use App\Models\Evenement;
++use App\Models\Paiement;
++use App\Services\FedaPayService;
++use Illuminate\Http\Request;
++use Illuminate\Support\Facades\Log;
++use Illuminate\Support\Facades\Validator;
++
++class PaiementController extends Controller
++{
++    /**
++     * Initie un paiement FedaPay pour la cotisation mensuelle (Article 2 : 1000 FCFA).
++     * Le membre_id est optionnel : à défaut, le paiement est enregistré avec les
++     * coordonnées saisies et un admin le rapproche manuellement du bon membre.
++     *
++     * POST /v1/paiements/cotisation
++     */
++    public function initierCotisation(Request $request, FedaPayService $fedapay)
++    {
++        $validator = Validator::make($request->all(), [
++            'membre_id' => 'nullable|exists:membres,id',
++            'mois' => 'required|regex:/^\d{4}-\d{2}$/',
++            'nom_payeur' => 'required_without:membre_id|string|max:255',
++            'telephone_payeur' => 'required|string|max:30',
++            'email_payeur' => 'nullable|email|max:255',
++        ]);
++
++        if ($validator->fails()) {
++            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
++        }
++
++        $data = $validator->validated();
++        $montant = CotisationController::MONTANT_DEFAUT;
++
++        $paiement = Paiement::create([
++            'type' => 'cotisation',
++            'membre_id' => $data['membre_id'] ?? null,
++            'mois' => $data['mois'],
++            'nom_payeur' => $data['nom_payeur'] ?? null,
++            'telephone_payeur' => $data['telephone_payeur'],
++            'email_payeur' => $data['email_payeur'] ?? null,
++            'montant' => $montant,
++            'devise' => 'XOF',
++            'statut' => 'en_attente',
++        ]);
++
++        return $this->demarrerTransaction(
++            $fedapay,
++            $paiement,
++            "Cotisation AJDCB - {$data['mois']}",
++            $data['nom_payeur'] ?? null,
++            $data['telephone_payeur'],
++            $data['email_payeur'] ?? null
++        );
++    }
++
++    /**
++     * Initie un paiement FedaPay pour un billet d'événement payant.
++     *
++     * POST /v1/paiements/evenements/{id}
++     */
++    public function initierEvenement(Request $request, $id, FedaPayService $fedapay)
++    {
++        $evenement = Evenement::findOrFail($id);
++
++        if (!$evenement->prix || $evenement->prix <= 0) {
++            return response()->json([
++                'success' => false,
++                'message' => 'Cet événement est gratuit, aucun paiement requis.'
++            ], 422);
++        }
++
++        if ($evenement->est_complet) {
++            return response()->json([
++                'success' => false,
++                'message' => 'Cet événement affiche complet.'
++            ], 422);
++        }
++
++        $validator = Validator::make($request->all(), [
++            'membre_id' => 'nullable|exists:membres,id',
++            'nom_payeur' => 'required|string|max:255',
++            'telephone_payeur' => 'required|string|max:30',
++            'email_payeur' => 'nullable|email|max:255',
++        ]);
++
++        if ($validator->fails()) {
++            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
++        }
++
++        $data = $validator->validated();
++
++        $paiement = Paiement::create([
++            'type' => 'evenement',
++            'membre_id' => $data['membre_id'] ?? null,
++            'evenement_id' => $evenement->id,
++            'nom_payeur' => $data['nom_payeur'],
++            'telephone_payeur' => $data['telephone_payeur'],
++            'email_payeur' => $data['email_payeur'] ?? null,
++            'montant' => $evenement->prix,
++            'devise' => $evenement->devise ?: 'XOF',
++            'statut' => 'en_attente',
++        ]);
++
++        return $this->demarrerTransaction(
++            $fedapay,
++            $paiement,
++            "Billet - {$evenement->titre}",
++            $data['nom_payeur'],
++            $data['telephone_payeur'],
++            $data['email_payeur'] ?? null
++        );
++    }
++
++    private function demarrerTransaction(
++        FedaPayService $fedapay,
++        Paiement $paiement,
++        string $description,
++        ?string $nomPayeur,
++        string $telephonePayeur,
++        ?string $emailPayeur
++    ) {
++        try {
++            [$prenom, $nom] = $this->splitNom($nomPayeur);
++
++            $customer = array_filter([
++                'firstname' => $prenom,
++                'lastname' => $nom,
++                'email' => $emailPayeur,
++                'phone_number' => [
++                    'number' => $telephonePayeur,
++                    'country' => 'bj',
++                ],
++            ]);
++
++            $resultat = $fedapay->initierTransaction((float) $paiement->montant, $description, $customer);
++
++            $paiement->update([
++                'fedapay_transaction_id' => $resultat['transaction_id'],
++            ]);
++
++            return response()->json([
++                'success' => true,
++                'data' => [
++                    'paiement_id' => $paiement->id,
++                    'checkout_url' => $resultat['checkout_url'],
++                ],
++            ]);
++        } catch (\Exception $e) {
++            Log::error('Erreur initiation FedaPay', ['erreur' => $e->getMessage(), 'paiement_id' => $paiement->id]);
++
++            $paiement->update(['statut' => 'echoue']);
++
++            return response()->json([
++                'success' => false,
++                'message' => "Impossible de contacter FedaPay pour l'instant, réessayez dans un instant.",
++            ], 502);
++        }
++    }
++
++    private function splitNom(?string $nomComplet): array
++    {
++        if (!$nomComplet) {
++            return [null, null];
++        }
++        $parts = preg_split('/\s+/', trim($nomComplet), 2);
++        return [$parts[0] ?? null, $parts[1] ?? null];
++    }
++
++    /**
++     * Webhook FedaPay : notification serveur-à-serveur à chaque changement
++     * d'état d'une transaction. Route publique, protégée par la vérification
++     * de signature (X-FEDAPAY-SIGNATURE) plutôt que par Sanctum.
++     *
++     * POST /paiements/webhook
++     */
++    public function webhook(Request $request, FedaPayService $fedapay)
++    {
++        $signature = $request->header('X-FEDAPAY-SIGNATURE', '');
++
++        try {
++            $event = $fedapay->verifierWebhook($request->getContent(), $signature);
++        } catch (\Exception $e) {
++            Log::warning('Webhook FedaPay rejeté : signature invalide', ['erreur' => $e->getMessage()]);
++            return response()->json(['success' => false], 400);
++        }
++
++        $transactionId = $event->entity->id ?? null;
++        $paiement = $transactionId ? Paiement::where('fedapay_transaction_id', $transactionId)->first() : null;
++
++        if (!$paiement) {
++            // Transaction inconnue de notre système (ou déjà traitée) : on
++            // répond 200 quand même pour éviter les tentatives répétées de FedaPay.
++            return response()->json(['success' => true]);
++        }
++
++        $paiement->fedapay_derniere_reponse = json_encode($event);
++
++        switch ($event->name ?? null) {
++            case 'transaction.approved':
++                $paiement->statut = 'reussi';
++                $paiement->save();
++                $this->appliquerPaiementReussi($paiement);
++                break;
++
++            case 'transaction.declined':
++                $paiement->statut = 'echoue';
++                $paiement->save();
++                break;
++
++            case 'transaction.canceled':
++                $paiement->statut = 'annule';
++                $paiement->save();
++                break;
++
++            default:
++                $paiement->save();
++                break;
++        }
++
++        return response()->json(['success' => true]);
++    }
++
++    /**
++     * Répercute un paiement confirmé sur les données métier : marque la
++     * cotisation payée, ou incrémente le nombre d'inscrits à l'événement.
++     */
++    private function appliquerPaiementReussi(Paiement $paiement): void
++    {
++        if ($paiement->type === 'cotisation' && $paiement->membre_id) {
++            Cotisation::updateOrCreate(
++                ['membre_id' => $paiement->membre_id, 'mois' => $paiement->mois],
++                [
++                    'montant' => $paiement->montant,
++                    'statut' => 'payee',
++                    'date_paiement' => now()->toDateString(),
++                    'mode_paiement' => 'mobile_money',
++                    'commentaire' => 'Payé en ligne via FedaPay (paiement #' . $paiement->id . ')',
++                ]
++            );
++        }
++
++        if ($paiement->type === 'evenement' && $paiement->evenement_id) {
++            Evenement::whereKey($paiement->evenement_id)->increment('nombre_inscrits');
++        }
++    }
++}
+diff --git a/app/Models/Paiement.php b/app/Models/Paiement.php
+new file mode 100644
+index 0000000..5019fe4
+--- /dev/null
++++ b/app/Models/Paiement.php
+@@ -0,0 +1,53 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Factories\HasFactory;
++use Illuminate\Database\Eloquent\Model;
++
++class Paiement extends Model
++{
++    use HasFactory;
++
++    protected $fillable = [
++        'type',
++        'membre_id',
++        'evenement_id',
++        'mois',
++        'nom_payeur',
++        'telephone_payeur',
++        'email_payeur',
++        'montant',
++        'devise',
++        'statut',
++        'fedapay_transaction_id',
++        'fedapay_reference',
++        'fedapay_derniere_reponse',
++    ];
++
++    protected $casts = [
++        'montant' => 'decimal:2',
++        'created_at' => 'datetime',
++        'updated_at' => 'datetime',
++    ];
++
++    public function membre()
++    {
++        return $this->belongsTo(Membre::class);
++    }
++
++    public function evenement()
++    {
++        return $this->belongsTo(Evenement::class);
++    }
++
++    public function scopeReussi($query)
++    {
++        return $query->where('statut', 'reussi');
++    }
++
++    public function scopeType($query, $type)
++    {
++        return $query->where('type', $type);
++    }
++}
+diff --git a/app/Services/FedaPayService.php b/app/Services/FedaPayService.php
+new file mode 100644
+index 0000000..577cf10
+--- /dev/null
++++ b/app/Services/FedaPayService.php
+@@ -0,0 +1,68 @@
++<?php
++
++namespace App\Services;
++
++use FedaPay\FedaPay;
++use FedaPay\Transaction;
++use FedaPay\Webhook;
++
++class FedaPayService
++{
++    public function __construct()
++    {
++        FedaPay::setApiKey((string) config('services.fedapay.secret_key'));
++        FedaPay::setEnvironment((string) config('services.fedapay.environment'));
++    }
++
++    /**
++     * Crée une transaction FedaPay et génère le lien de paiement sécurisé
++     * vers lequel rediriger le client.
++     *
++     * @param float $montant Montant en XOF (entier attendu par FedaPay)
++     * @param string $description
++     * @param array $customer ['firstname' => ..., 'lastname' => ..., 'email' => ..., 'phone_number' => ['number' => ..., 'country' => 'bj']]
++     * @return array{transaction_id: int, checkout_url: string}
++     */
++    public function initierTransaction(float $montant, string $description, array $customer = []): array
++    {
++        $transaction = Transaction::create([
++            'description' => $description,
++            'amount' => (int) round($montant),
++            'currency' => ['iso' => 'XOF'],
++            'callback_url' => config('services.fedapay.callback_url'),
++            'customer' => $customer,
++        ]);
++
++        $token = $transaction->generateToken();
++
++        return [
++            'transaction_id' => $transaction->id,
++            'checkout_url' => $token->url,
++        ];
++    }
++
++    /**
++     * Récupère l'état à jour d'une transaction directement auprès de FedaPay
++     * (utile pour re-vérifier un paiement indépendamment du webhook).
++     */
++    public function recupererTransaction(string $transactionId): Transaction
++    {
++        return Transaction::retrieve($transactionId);
++    }
++
++    /**
++     * Vérifie la signature d'un webhook FedaPay et retourne l'évènement décodé.
++     * Lève une exception si la signature est invalide.
++     *
++     * @param string $payload Corps brut de la requête
++     * @param string $signature Valeur de l'en-tête X-FEDAPAY-SIGNATURE
++     */
++    public function verifierWebhook(string $payload, string $signature): object
++    {
++        return Webhook::constructEvent(
++            $payload,
++            $signature,
++            (string) config('services.fedapay.webhook_secret')
++        );
++    }
++}
+diff --git a/composer.json b/composer.json
+index b221e28..472b928 100644
+--- a/composer.json
++++ b/composer.json
+@@ -3,14 +3,18 @@
+     "name": "laravel/laravel",
+     "type": "project",
+     "description": "The skeleton application for the Laravel framework.",
+-    "keywords": ["laravel", "framework"],
++    "keywords": [
++        "laravel",
++        "framework"
++    ],
+     "license": "MIT",
+     "require": {
+         "php": "^8.2",
+         "intervention/image": "^3.11",
+         "laravel/framework": "^12.0",
+         "laravel/sanctum": "^4.0",
+-        "laravel/tinker": "^2.10.1"
++        "laravel/tinker": "^2.10.1",
++        "fedapay/fedapay-php": "^0.4.8"
+     },
+     "require-dev": {
+         "fakerphp/faker": "^1.23",
+diff --git a/config/services.php b/config/services.php
+index 6a90eb8..d8dd0f6 100644
+--- a/config/services.php
++++ b/config/services.php
+@@ -35,4 +35,15 @@
+         ],
+     ],
+ 
++    'fedapay' => [
++        // 'sandbox' ou 'live'
++        'environment' => env('FEDAPAY_ENVIRONMENT', 'sandbox'),
++        'secret_key' => env('FEDAPAY_SECRET_KEY'),
++        'public_key' => env('FEDAPAY_PUBLIC_KEY'),
++        // Secret du endpoint webhook (dashboard FedaPay > Webhooks), pas la clé API.
++        'webhook_secret' => env('FEDAPAY_WEBHOOK_SECRET'),
++        // Page du site où FedaPay redirige le client après paiement.
++        'callback_url' => env('FEDAPAY_CALLBACK_URL', env('FRONTEND_URL', 'http://localhost:5173') . '/paiement/retour'),
++    ],
++
+ ];
+diff --git a/database/migrations/2026_08_25_000001_create_paiements_table.php b/database/migrations/2026_08_25_000001_create_paiements_table.php
+new file mode 100644
+index 0000000..89921df
+--- /dev/null
++++ b/database/migrations/2026_08_25_000001_create_paiements_table.php
+@@ -0,0 +1,49 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up()
++    {
++        Schema::create('paiements', function (Blueprint $table) {
++            $table->id();
++
++            // 'cotisation' ou 'evenement'
++            $table->string('type');
++
++            $table->foreignId('membre_id')->nullable()->constrained('membres')->nullOnDelete();
++            $table->foreignId('evenement_id')->nullable()->constrained('evenements')->nullOnDelete();
++
++            // Renseigné uniquement pour une cotisation (format AAAA-MM)
++            $table->string('mois')->nullable();
++
++            // Coordonnées du payeur, utiles quand aucun membre_id n'est fourni
++            // (ex: achat de billet par un non-membre) et pour contacter FedaPay.
++            $table->string('nom_payeur')->nullable();
++            $table->string('telephone_payeur')->nullable();
++            $table->string('email_payeur')->nullable();
++
++            $table->decimal('montant', 10, 2);
++            $table->string('devise', 10)->default('XOF');
++
++            // en_attente -> reussi | echoue | annule
++            $table->string('statut')->default('en_attente');
++
++            $table->string('fedapay_transaction_id')->nullable()->unique();
++            $table->string('fedapay_reference')->nullable();
++            $table->text('fedapay_derniere_reponse')->nullable();
++
++            $table->timestamps();
++
++            $table->index(['type', 'statut']);
++        });
++    }
++
++    public function down()
++    {
++        Schema::dropIfExists('paiements');
++    }
++};
+diff --git a/routes/api.php b/routes/api.php
+index b96a706..b016c79 100644
+--- a/routes/api.php
++++ b/routes/api.php
+@@ -11,6 +11,7 @@
+ use App\Http\Controllers\API\EvenementController;
+ use App\Http\Controllers\API\GuideController;
+ use App\Http\Controllers\API\PartenaireController;
++use App\Http\Controllers\API\PaiementController;
+ use App\Http\Controllers\ImageController;
+ 
+ // ==================== ROUTES PUBLIQUES ====================
+@@ -72,8 +73,19 @@
+     // Partenaires - Routes publiques (consultation)
+     Route::get('/partenaires', [PartenaireController::class, 'index']);
+     Route::get('/partenaires/{id}', [PartenaireController::class, 'show']);
++
++    // Paiements FedaPay - Routes publiques (initiation depuis le site public)
++    Route::prefix('paiements')->group(function () {
++        Route::post('/cotisation', [PaiementController::class, 'initierCotisation']);
++        Route::post('/evenements/{id}', [PaiementController::class, 'initierEvenement']);
++    });
+ });
+ 
++// Webhook FedaPay (PUBLIC, hors auth Sanctum — protégé par vérification de
++// signature X-FEDAPAY-SIGNATURE dans le contrôleur). Hors du groupe /v1 pour
++// correspondre exactement à l'URL à renseigner dans le dashboard FedaPay.
++Route::post('/paiements/webhook', [PaiementController::class, 'webhook']);
++
+ // Détail d'une adhésion (PUBLIC — ex : page de suivi de candidature par lien direct)
+ Route::get('/adhesions/{id}/details', [AdhesionController::class, 'show']);
+ 
