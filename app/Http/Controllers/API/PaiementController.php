@@ -243,6 +243,11 @@ class PaiementController extends Controller
                     'commentaire' => 'Payé en ligne via FedaPay (paiement #' . $paiement->id . ')',
                 ]
             );
+
+            // Premier paiement réussi d'un membre encore en attente : il devient actif.
+            \App\Models\Membre::where('id', $paiement->membre_id)
+                ->where('statut', 'en_attente_paiement')
+                ->update(['statut' => 'actif']);
         }
 
         if ($paiement->type === 'evenement' && $paiement->evenement_id) {

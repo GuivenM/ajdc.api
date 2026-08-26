@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Adhesion;
+use App\Models\Membre;
 use App\Mail\ConfirmationAdhesion;
 use App\Mail\NotificationTraitementAdhesion;
 use App\Mail\NotificationNouvelleAdhesion;
@@ -265,6 +266,22 @@ class AdhesionController extends Controller
                 'traite_par' => auth()->id(),
             ]);
 
+            if ($request->statut === 'approuvee') {
+                // Le membre existe dès l'approbation, mais reste "en_attente_paiement"
+                // tant que la cotisation initiale (1000F, cf. PaiementController) n'est
+                // pas réglée. firstOrCreate évite un doublon si traiter() est rappelé.
+                Membre::firstOrCreate(
+                    ['adhesion_id' => $adhesion->id],
+                    [
+                        'nom' => $adhesion->nom,
+                        'prenom' => $adhesion->prenom,
+                        'photo' => $adhesion->photo,
+                        'whatsapp' => $adhesion->telephone,
+                        'statut' => 'en_attente_paiement',
+                    ]
+                );
+            }
+
             // Envoyer email de notification
             try {
                 Mail::to($adhesion->email)->send(new NotificationTraitementAdhesion($adhesion));
@@ -287,49 +304,6 @@ class AdhesionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors du traitement de la demande',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Approuver une demande d'adhésion
-     */
-    public function approuver($id)
-    {
-        try {
-            $adhesion = Adhesion::findOrFail($id);
-
-            if ($adhesion->statut !== 'en_attente') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cette demande a déjà été traitée'
-                ], 400);
-            }
-
-            $adhesion->update([
-                'statut' => 'approuvee',
-                'date_traitement' => now(),
-                'traite_par' => auth()->id(),
-            ]);
-
-            try {
-                Mail::to($adhesion->email)->send(new NotificationTraitementAdhesion($adhesion));
-            } catch (\Exception $e) {
-                \Log::error('Erreur envoi email: ' . $e->getMessage());
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Demande approuvée avec succès',
-                'data' => $adhesion,
-                'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de l\'approbation',
                 'error' => $e->getMessage()
             ], 500);
         }

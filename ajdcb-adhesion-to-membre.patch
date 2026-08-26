@@ -1,0 +1,106 @@
+diff --git a/app/Http/Controllers/API/AdhesionController.php b/app/Http/Controllers/API/AdhesionController.php
+index 3471856..486025e 100644
+--- a/app/Http/Controllers/API/AdhesionController.php
++++ b/app/Http/Controllers/API/AdhesionController.php
+@@ -4,6 +4,7 @@
+ 
+ use App\Http\Controllers\Controller;
+ use App\Models\Adhesion;
++use App\Models\Membre;
+ use App\Mail\ConfirmationAdhesion;
+ use App\Mail\NotificationTraitementAdhesion;
+ use App\Mail\NotificationNouvelleAdhesion;
+@@ -313,6 +314,20 @@ public function approuver($id)
+                 'traite_par' => auth()->id(),
+             ]);
+ 
++            // Le membre existe dès l'approbation, mais reste "en_attente_paiement"
++            // tant que la cotisation initiale (1000F, cf. PaiementController) n'est
++            // pas réglée. firstOrCreate évite un doublon si approuver() est rappelé.
++            $membre = Membre::firstOrCreate(
++                ['adhesion_id' => $adhesion->id],
++                [
++                    'nom' => $adhesion->nom,
++                    'prenom' => $adhesion->prenom,
++                    'photo' => $adhesion->photo,
++                    'whatsapp' => $adhesion->telephone,
++                    'statut' => 'en_attente_paiement',
++                ]
++            );
++
+             try {
+                 Mail::to($adhesion->email)->send(new NotificationTraitementAdhesion($adhesion));
+             } catch (\Exception $e) {
+@@ -323,6 +338,7 @@ public function approuver($id)
+                 'success' => true,
+                 'message' => 'Demande approuvée avec succès',
+                 'data' => $adhesion,
++                'membre_id' => $membre->id,
+                 'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
+             ], 200);
+ 
+diff --git a/app/Http/Controllers/API/PaiementController.php b/app/Http/Controllers/API/PaiementController.php
+index 9ee78eb..332c1b3 100644
+--- a/app/Http/Controllers/API/PaiementController.php
++++ b/app/Http/Controllers/API/PaiementController.php
+@@ -243,6 +243,11 @@ private function appliquerPaiementReussi(Paiement $paiement): void
+                     'commentaire' => 'Payé en ligne via FedaPay (paiement #' . $paiement->id . ')',
+                 ]
+             );
++
++            // Premier paiement réussi d'un membre encore en attente : il devient actif.
++            \App\Models\Membre::where('id', $paiement->membre_id)
++                ->where('statut', 'en_attente_paiement')
++                ->update(['statut' => 'actif']);
+         }
+ 
+         if ($paiement->type === 'evenement' && $paiement->evenement_id) {
+diff --git a/app/Models/Membre.php b/app/Models/Membre.php
+index f32be71..960fa2b 100644
+--- a/app/Models/Membre.php
++++ b/app/Models/Membre.php
+@@ -12,6 +12,7 @@ class Membre extends Model
+     use HasFactory;
+ 
+     protected $fillable = [
++        'adhesion_id',
+         'nom',
+         'prenom',
+         'photo',
+diff --git a/database/migrations/2026_08_26_000000_link_membres_to_adhesions.php b/database/migrations/2026_08_26_000000_link_membres_to_adhesions.php
+new file mode 100644
+index 0000000..96b9a7c
+--- /dev/null
++++ b/database/migrations/2026_08_26_000000_link_membres_to_adhesions.php
+@@ -0,0 +1,31 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++use Illuminate\Support\Facades\DB;
++
++return new class extends Migration
++{
++    public function up()
++    {
++        Schema::table('membres', function (Blueprint $table) {
++            $table->foreignId('adhesion_id')->nullable()->unique()
++                ->after('id')
++                ->constrained('adhesions')->nullOnDelete();
++        });
++
++        // Un membre créé à partir d'une adhésion approuvée démarre "en attente
++        // de paiement" (cotisation initiale de 1000F) avant de passer "actif".
++        DB::statement("ALTER TABLE membres MODIFY statut ENUM('actif', 'inactif', 'en_attente_paiement') NOT NULL DEFAULT 'actif'");
++    }
++
++    public function down()
++    {
++        DB::statement("ALTER TABLE membres MODIFY statut ENUM('actif', 'inactif') NOT NULL DEFAULT 'actif'");
++
++        Schema::table('membres', function (Blueprint $table) {
++            $table->dropConstrainedForeignId('adhesion_id');
++        });
++    }
++};

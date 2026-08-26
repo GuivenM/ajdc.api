@@ -12,6 +12,7 @@ class Membre extends Model
     use HasFactory;
 
     protected $fillable = [
+        'adhesion_id',
         'nom',
         'prenom',
         'photo',

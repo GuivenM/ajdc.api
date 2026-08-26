@@ -115,6 +115,14 @@ class CotisationController extends Controller
                 $data
             );
 
+            // Même règle que côté FedaPay (PaiementController) : un premier
+            // paiement confirmé, manuel ou en ligne, active le membre.
+            if ($request->statut === 'payee') {
+                Membre::where('id', $request->membre_id)
+                    ->where('statut', 'en_attente_paiement')
+                    ->update(['statut' => 'actif']);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => $request->statut === 'payee' ? 'Cotisation marquée payée' : 'Cotisation marquée impayée',
@@ -177,6 +185,8 @@ class CotisationController extends Controller
         try {
             $membre = Membre::findOrFail($id);
 
+            $moisAdhesion = $membre->created_at->format('Y-m');
+
             $mois = collect(range(0, 11))
                 ->map(fn($i) => now()->subMonths($i)->format('Y-m'))
                 ->values();
@@ -186,7 +196,18 @@ class CotisationController extends Controller
                 ->get()
                 ->keyBy('mois');
 
-            $historique = $mois->map(function ($m) use ($cotisations) {
+            // Un mois antérieur à l'arrivée du membre n'est ni payé ni impayé :
+            // il n'était tout simplement pas encore membre, donc rien à devoir.
+            $historique = $mois->map(function ($m) use ($cotisations, $moisAdhesion) {
+                if ($m < $moisAdhesion) {
+                    return [
+                        'mois' => $m,
+                        'statut' => 'anterieure_adhesion',
+                        'date_paiement' => null,
+                        'montant' => null,
+                    ];
+                }
+
                 $c = $cotisations->get($m);
                 return [
                     'mois' => $m,
@@ -197,7 +218,8 @@ class CotisationController extends Controller
             });
 
             // Retard consécutif à partir du mois courant (Article 3 : radiation
-            // automatique après 3 mois consécutifs de non-paiement).
+            // automatique après 3 mois consécutifs de non-paiement). Un mois
+            // "anterieure_adhesion" arrête le décompte, comme un mois payé.
             $retardConsecutif = 0;
             foreach ($historique as $entry) {
                 if ($entry['statut'] === 'impayee') {
