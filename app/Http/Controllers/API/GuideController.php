@@ -91,10 +91,10 @@ class GuideController extends Controller
             $data = $validator->validated();
 
             if ($request->hasFile('image')) {
-                $data['image'] = str_replace('public/', '', $request->file('image')->store('public/guide/sections'));
+                $data['image'] = str_replace('public/', '', $request->file('image')->store('guide/sections', 'public'));
             }
             if ($request->hasFile('icone')) {
-                $data['icone'] = str_replace('public/', '', $request->file('icone')->store('public/guide/icones'));
+                $data['icone'] = str_replace('public/', '', $request->file('icone')->store('guide/icones', 'public'));
             }
 
             $section = GuideSection::create($data);
@@ -142,13 +142,13 @@ class GuideController extends Controller
                 if ($section->image) {
                     Storage::delete('public/' . $section->image);
                 }
-                $data['image'] = str_replace('public/', '', $request->file('image')->store('public/guide/sections'));
+                $data['image'] = str_replace('public/', '', $request->file('image')->store('guide/sections', 'public'));
             }
             if ($request->hasFile('icone')) {
                 if ($section->icone) {
                     Storage::delete('public/' . $section->icone);
                 }
-                $data['icone'] = str_replace('public/', '', $request->file('icone')->store('public/guide/icones'));
+                $data['icone'] = str_replace('public/', '', $request->file('icone')->store('guide/icones', 'public'));
             }
 
             $section->update($data);
@@ -220,7 +220,7 @@ class GuideController extends Controller
             $data = $validator->validated();
 
             if ($request->hasFile('image')) {
-                $data['image'] = str_replace('public/', '', $request->file('image')->store('public/guide/sous-sections'));
+                $data['image'] = str_replace('public/', '', $request->file('image')->store('guide/sous-sections', 'public'));
             }
 
             $sousSection = GuideSousSection::create($data);
@@ -266,7 +266,7 @@ class GuideController extends Controller
                 if ($sousSection->image) {
                     Storage::delete('public/' . $sousSection->image);
                 }
-                $data['image'] = str_replace('public/', '', $request->file('image')->store('public/guide/sous-sections'));
+                $data['image'] = str_replace('public/', '', $request->file('image')->store('guide/sous-sections', 'public'));
             }
 
             $sousSection->update($data);
@@ -332,7 +332,7 @@ class GuideController extends Controller
             unset($data['fichier']);
 
             $file = $request->file('fichier');
-            $path = $file->store('public/guide/documents');
+            $path = $file->store('guide/documents', 'public');
             $data['fichier'] = str_replace('public/', '', $path);
             $data['type_fichier'] = $file->getClientOriginalExtension();
             $data['taille'] = $file->getSize();
@@ -381,7 +381,7 @@ class GuideController extends Controller
                     Storage::delete('public/' . $document->fichier);
                 }
                 $file = $request->file('fichier');
-                $path = $file->store('public/guide/documents');
+                $path = $file->store('guide/documents', 'public');
                 $data['fichier'] = str_replace('public/', '', $path);
                 $data['type_fichier'] = $file->getClientOriginalExtension();
                 $data['taille'] = $file->getSize();

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -73,12 +75,14 @@ class Partenaire extends Model
         return $query->where('niveau_partenariat', $niveau);
     }
 
+    protected $appends = ['logo_url', 'niveau_label', 'type_label'];
+
     /**
      * Accesseurs
      */
     public function getLogoUrlAttribute()
     {
-        return $this->logo ? asset('storage/' . $this->logo) : null;
+        return $this->logo ? Storage::disk('public')->url($this->logo) : null;
     }
 
     public function getNiveauLabelAttribute()

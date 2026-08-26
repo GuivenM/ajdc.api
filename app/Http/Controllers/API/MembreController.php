@@ -147,7 +147,7 @@ class MembreController extends Controller
 
             // Gérer l'upload de la photo
             if ($request->hasFile('photo')) {
-                $path = $request->file('photo')->store('public/membres');
+                $path = $request->file('photo')->store('membres', 'public');
                 $data['photo'] = str_replace('public/', '', $path);
             }
 
@@ -226,7 +226,7 @@ class MembreController extends Controller
                     Storage::delete('public/' . $membre->photo);
                 }
                 
-                $path = $request->file('photo')->store('public/membres');
+                $path = $request->file('photo')->store('membres', 'public');
                 $data['photo'] = str_replace('public/', '', $path);
             }
 

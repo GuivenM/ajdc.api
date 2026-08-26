@@ -116,7 +116,7 @@ class ActionController extends Controller
 
             // Gérer l'upload de l'image
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('public/actions');
+                $path = $request->file('image')->store('actions', 'public');
                 $data['image'] = str_replace('public/', '', $path);
             }
 
@@ -181,7 +181,7 @@ class ActionController extends Controller
                     Storage::delete('public/' . $action->image);
                 }
                 
-                $path = $request->file('image')->store('public/actions');
+                $path = $request->file('image')->store('actions', 'public');
                 $data['image'] = str_replace('public/', '', $path);
             }
 

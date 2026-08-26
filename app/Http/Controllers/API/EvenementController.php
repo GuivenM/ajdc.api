@@ -105,7 +105,7 @@ class EvenementController extends Controller
             $data = $validator->validated();
 
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('public/evenements');
+                $path = $request->file('image')->store('evenements', 'public');
                 $data['image'] = str_replace('public/', '', $path);
             }
 
@@ -171,7 +171,7 @@ class EvenementController extends Controller
                 if ($evenement->image) {
                     Storage::delete('public/' . $evenement->image);
                 }
-                $path = $request->file('image')->store('public/evenements');
+                $path = $request->file('image')->store('evenements', 'public');
                 $data['image'] = str_replace('public/', '', $path);
             }
 

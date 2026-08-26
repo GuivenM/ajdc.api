@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -68,12 +70,14 @@ class Actualite extends Model
         return $query->publie()->orderBy('created_at', 'desc')->limit($limit);
     }
 
+    protected $appends = ['image_url', 'date', 'type_label', 'extrait'];
+
     /**
      * Accesseurs
      */
     public function getImageUrlAttribute()
     {
-        return $this->image ? asset('storage/' . $this->image) : null;
+        return $this->image ? Storage::disk('public')->url($this->image) : null;
     }
 
     public function getDateAttribute()

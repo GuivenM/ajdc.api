@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Mail;
 
 class AdhesionController extends Controller
 {
+    /**
+     * Afficher toutes les demandes d'adhésion
+     */
     public function index()
     {
         try {
@@ -33,6 +36,9 @@ class AdhesionController extends Controller
         }
     }
 
+    /**
+     * Afficher une demande spécifique
+     */
     public function show($id)
     {
         try {
@@ -155,33 +161,41 @@ class AdhesionController extends Controller
             }
 
             // IMPORTANT : on part UNIQUEMENT des champs validés (jamais $request->all()).
+            // 'statut', 'date_traitement' et 'traite_par' ne sont pas dans les règles
+            // ci-dessus et ne peuvent donc jamais être fixés par un appelant public —
+            // sinon n'importe qui pourrait auto-approuver sa propre demande.
             $data = $validator->validated();
 
+            // Nationalité : déduite de la case "êtes-vous congolais(e)" si non précisée.
             $data['nationalite'] = $data['est_congolais']
                 ? 'Congolaise'
                 : ($data['nationalite'] ?? 'Non précisée');
 
-            $data['photo'] = str_replace('public/', '', $request->file('photo')->store('public/adhesions/photos'));
+            // Photo (obligatoire, utilisée pour le badge)
+            $data['photo'] = str_replace('public/', '', $request->file('photo')->store('adhesions/photos', 'public'));
 
+            // Carte consulaire (si le candidat déclare en posséder une)
             if ($request->hasFile('carte_consulaire_fichier')) {
                 $data['carte_consulaire_fichier'] = str_replace(
-                    'public/', '', $request->file('carte_consulaire_fichier')->store('public/adhesions/documents')
+                    'public/', '', $request->file('carte_consulaire_fichier')->store('adhesions/documents', 'public')
                 );
             } else {
                 unset($data['carte_consulaire_fichier']);
             }
 
+            // CIPR (optionnel)
             if ($request->hasFile('cipr_fichier')) {
                 $data['cipr_fichier'] = str_replace(
-                    'public/', '', $request->file('cipr_fichier')->store('public/adhesions/documents')
+                    'public/', '', $request->file('cipr_fichier')->store('adhesions/documents', 'public')
                 );
             } else {
                 unset($data['cipr_fichier']);
             }
 
+            // Lettre de demande au Président (jusqu'à 5 fichiers)
             if ($request->hasFile('lettre_demande_fichiers')) {
                 $data['lettre_demande_fichiers'] = collect($request->file('lettre_demande_fichiers'))
-                    ->map(fn($file) => str_replace('public/', '', $file->store('public/adhesions/lettres')))
+                    ->map(fn($file) => str_replace('public/', '', $file->store('adhesions/lettres', 'public')))
                     ->values()
                     ->all();
             } else {
@@ -190,12 +204,14 @@ class AdhesionController extends Controller
 
             $adhesion = Adhesion::create($data);
 
+            // Envoyer email de confirmation au candidat
             try {
                 Mail::to($adhesion->email)->send(new ConfirmationAdhesion($adhesion));
             } catch (\Exception $e) {
                 \Log::error('Erreur envoi email confirmation candidat: ' . $e->getMessage());
             }
 
+            // Envoyer notification à l'admin
             try {
                 $adminEmail = config('mail.admin_address');
                 if (!$adminEmail) {
@@ -222,6 +238,9 @@ class AdhesionController extends Controller
         }
     }
 
+    /**
+     * Traiter une demande d'adhésion (approuver/rejeter)
+     */
     public function traiter(Request $request, $id)
     {
         try {
@@ -246,6 +265,7 @@ class AdhesionController extends Controller
                 'traite_par' => auth()->id(),
             ]);
 
+            // Envoyer email de notification
             try {
                 Mail::to($adhesion->email)->send(new NotificationTraitementAdhesion($adhesion));
             } catch (\Exception $e) {
@@ -272,6 +292,9 @@ class AdhesionController extends Controller
         }
     }
 
+    /**
+     * Approuver une demande d'adhésion
+     */
     public function approuver($id)
     {
         try {
@@ -312,6 +335,9 @@ class AdhesionController extends Controller
         }
     }
 
+    /**
+     * Rejeter une demande d'adhésion
+     */
     public function rejeter(Request $request, $id)
     {
         try {
@@ -364,6 +390,9 @@ class AdhesionController extends Controller
         }
     }
 
+    /**
+     * Statistiques des demandes d'adhésion
+     */
     public function statistiques()
     {
         try {
@@ -393,6 +422,9 @@ class AdhesionController extends Controller
         }
     }
 
+    /**
+     * Supprimer une demande d'adhésion
+     */
     public function destroy($id)
     {
         try {
@@ -413,6 +445,9 @@ class AdhesionController extends Controller
         }
     }
 
+    /**
+     * Exporter les demandes en CSV
+     */
     public function exporter(Request $request)
     {
         try {

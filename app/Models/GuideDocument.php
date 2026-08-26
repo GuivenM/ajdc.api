@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -36,12 +38,14 @@ class GuideDocument extends Model
         return $this->belongsTo(GuideSousSection::class, 'sous_section_id');
     }
 
+    protected $appends = ['fichier_url', 'taille_formatee'];
+
     /**
      * Accesseurs
      */
     public function getFichierUrlAttribute()
     {
-        return $this->fichier ? asset('storage/' . $this->fichier) : null;
+        return $this->fichier ? Storage::disk('public')->url($this->fichier) : null;
     }
 
     public function getTailleFormateeAttribute()

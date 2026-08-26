@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -46,11 +48,13 @@ class GuideSousSection extends Model
         return $query->where('statut', 'publie');
     }
 
+    protected $appends = ['image_url'];
+
     /**
      * Accesseurs
      */
     public function getImageUrlAttribute()
     {
-        return $this->image ? asset('storage/' . $this->image) : null;
+        return $this->image ? Storage::disk('public')->url($this->image) : null;
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -28,6 +30,8 @@ class Membre extends Model
         'updated_at' => 'datetime'
     ];
 
+    protected $appends = ['nom_complet', 'photo_url', 'role'];
+
     /**
      * Accesseurs
      */
@@ -38,7 +42,7 @@ class Membre extends Model
 
     public function getPhotoUrlAttribute()
     {
-        return $this->photo ? asset('storage/' . $this->photo) : null;
+        return $this->photo ? Storage::disk('public')->url($this->photo) : null;
     }
 
     public function getRoleAttribute()

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -37,6 +39,8 @@ class User extends Authenticatable
         'updated_at' => 'datetime'
     ];
 
+    protected $appends = ['nom_complet', 'photo_url', 'initiales', 'role_label'];
+
     /**
      * Accesseurs - NE LES DECLAREZ QU'UNE SEULE FOIS
      */
@@ -47,7 +51,7 @@ class User extends Authenticatable
 
     public function getPhotoUrlAttribute()
     {
-        return $this->photo ? asset('storage/' . $this->photo) : null;
+        return $this->photo ? Storage::disk('public')->url($this->photo) : null;
     }
 
     public function getInitialesAttribute()

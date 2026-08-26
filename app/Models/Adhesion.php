@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -63,6 +65,9 @@ class Adhesion extends Model
         'updated_at' => 'datetime',
     ];
 
+    /**
+     * Relations
+     */
     public function traitePar()
     {
         return $this->belongsTo(User::class, 'traite_par');
@@ -73,6 +78,9 @@ class Adhesion extends Model
         return $this->hasOne(Membre::class, 'adhesion_id');
     }
 
+    /**
+     * Scopes
+     */
     public function scopeEnAttente($query)
     {
         return $query->where('statut', 'en_attente');
@@ -93,6 +101,11 @@ class Adhesion extends Model
         return $query->where('ville', 'like', "%$ville%");
     }
 
+    protected $appends = ['nom_complet', 'age', 'statut_label', 'statut_color', 'date_soumission', 'date_naissance_format', 'photo_url', 'carte_consulaire_fichier_url', 'cipr_fichier_url', 'lettre_demande_fichiers_urls'];
+
+    /**
+     * Accesseurs
+     */
     public function getNomCompletAttribute()
     {
         return $this->prenom . ' ' . $this->nom;
@@ -137,23 +150,23 @@ class Adhesion extends Model
 
     public function getPhotoUrlAttribute()
     {
-        return $this->photo ? asset('storage/' . $this->photo) : null;
+        return $this->photo ? Storage::disk('public')->url($this->photo) : null;
     }
 
     public function getCarteConsulaireFichierUrlAttribute()
     {
-        return $this->carte_consulaire_fichier ? asset('storage/' . $this->carte_consulaire_fichier) : null;
+        return $this->carte_consulaire_fichier ? Storage::disk('public')->url($this->carte_consulaire_fichier) : null;
     }
 
     public function getCiprFichierUrlAttribute()
     {
-        return $this->cipr_fichier ? asset('storage/' . $this->cipr_fichier) : null;
+        return $this->cipr_fichier ? Storage::disk('public')->url($this->cipr_fichier) : null;
     }
 
     public function getLettreDemandeFichiersUrlsAttribute()
     {
         return collect($this->lettre_demande_fichiers ?? [])
-            ->map(fn($path) => asset('storage/' . $path))
+            ->map(fn($path) => Storage::disk('public')->url($path))
             ->values();
     }
 }

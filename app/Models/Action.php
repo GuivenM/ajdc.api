@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -66,12 +68,14 @@ class Action extends Model
         return $query->where('statut', 'termine');
     }
 
+    protected $appends = ['image_url', 'section_label', 'statut_label', 'statut_color', 'date_affichage', 'lieu_affichage', 'objectifs_liste', 'activites_liste', 'resultats_liste'];
+
     /**
      * Accesseurs
      */
     public function getImageUrlAttribute()
     {
-        return $this->image ? asset('storage/' . $this->image) : null;
+        return $this->image ? Storage::disk('public')->url($this->image) : null;
     }
 
     public function getSectionLabelAttribute()

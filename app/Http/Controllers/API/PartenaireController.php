@@ -104,7 +104,7 @@ class PartenaireController extends Controller
             $data = $validator->validated();
 
             if ($request->hasFile('logo')) {
-                $path = $request->file('logo')->store('public/partenaires');
+                $path = $request->file('logo')->store('partenaires', 'public');
                 $data['logo'] = str_replace('public/', '', $path);
             }
 
@@ -164,7 +164,7 @@ class PartenaireController extends Controller
                 if ($partenaire->logo) {
                     Storage::delete('public/' . $partenaire->logo);
                 }
-                $path = $request->file('logo')->store('public/partenaires');
+                $path = $request->file('logo')->store('partenaires', 'public');
                 $data['logo'] = str_replace('public/', '', $path);
             }
 

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -48,16 +50,18 @@ class GuideSection extends Model
         return $query->where('categorie', $categorie);
     }
 
+    protected $appends = ['image_url', 'icone_url'];
+
     /**
      * Accesseurs
      */
     public function getImageUrlAttribute()
     {
-        return $this->image ? asset('storage/' . $this->image) : null;
+        return $this->image ? Storage::disk('public')->url($this->image) : null;
     }
 
     public function getIconeUrlAttribute()
     {
-        return $this->icone ? asset('storage/' . $this->icone) : null;
+        return $this->icone ? Storage::disk('public')->url($this->icone) : null;
     }
 }

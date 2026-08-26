@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -99,12 +101,14 @@ class Evenement extends Model
         return $query->where('type', $type);
     }
 
+    protected $appends = ['image_url', 'places_restantes', 'est_complet', 'statut_evenement', 'periode'];
+
     /**
      * Accesseurs
      */
     public function getImageUrlAttribute()
     {
-        return $this->image ? asset('storage/' . $this->image) : null;
+        return $this->image ? Storage::disk('public')->url($this->image) : null;
     }
 
     public function getPlacesRestantesAttribute()

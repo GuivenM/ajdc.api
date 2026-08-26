@@ -63,6 +63,8 @@ class Message extends Model
         return $query->where('objet', $objet);
     }
 
+    protected $appends = ['nom_complet', 'objet_label', 'statut_label', 'statut_color', 'date_envoi', 'date_envoi_fr', 'extrait'];
+
     /**
      * Accesseurs
      */

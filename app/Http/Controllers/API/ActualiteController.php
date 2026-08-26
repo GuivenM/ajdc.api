@@ -138,7 +138,7 @@ class ActualiteController extends Controller
         // Le slug sera généré automatiquement par le modèle
 
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('public/actualites');
+            $imagePath = $request->file('image')->store('actualites', 'public');
             $data['image'] = str_replace('public/', '', $imagePath);
         }
 
@@ -192,7 +192,7 @@ class ActualiteController extends Controller
                     Storage::delete('public/' . $actualite->image);
                 }
                 
-                $imagePath = $request->file('image')->store('public/actualites');
+                $imagePath = $request->file('image')->store('actualites', 'public');
                 $data['image'] = str_replace('public/', '', $imagePath);
             }
 
