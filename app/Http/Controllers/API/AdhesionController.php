@@ -13,20 +13,17 @@ use Illuminate\Support\Facades\Mail;
 
 class AdhesionController extends Controller
 {
-    /**
-     * Afficher toutes les demandes d'adhésion
-     */
     public function index()
     {
         try {
             $adhesions = Adhesion::orderBy('created_at', 'desc')->get();
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $adhesions,
                 'message' => 'Demandes d\'adhésion récupérées avec succès'
             ], 200);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -36,20 +33,17 @@ class AdhesionController extends Controller
         }
     }
 
-    /**
-     * Afficher une demande spécifique
-     */
     public function show($id)
     {
         try {
             $adhesion = Adhesion::findOrFail($id);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $adhesion,
                 'message' => 'Demande récupérée avec succès'
             ], 200);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -59,24 +53,98 @@ class AdhesionController extends Controller
     }
 
     /**
-     * Créer une nouvelle demande d'adhésion
+     * Créer une nouvelle demande d'adhésion.
+     *
+     * Reflète le formulaire complet (ex Google Form) : nationalité et pièces,
+     * état civil, statut professionnel avec branches étudiant/entrepreneur,
+     * compétences/centres d'intérêt/langues, engagement associatif, et la
+     * déclaration sur l'honneur. 4 uploads de fichiers (photo, carte
+     * consulaire, CIPR, lettre au Président).
      */
     public function store(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
+                // --- Nationalité & pièces ---
+                'est_congolais' => 'required|boolean',
+                'nationalite' => 'nullable|string|max:255',
+                'possede_carte_consulaire' => 'nullable|boolean',
+                'duree_au_benin' => 'required|string|max:100',
+                'possede_cipr' => 'nullable|boolean',
+
+                // --- Identité & état civil ---
                 'nom' => 'required|string|max:255',
                 'prenom' => 'required|string|max:255',
+                'nom_marital' => 'nullable|string|max:255',
+                'sexe' => 'required|in:masculin,feminin',
                 'date_naissance' => 'required|date|before:today',
                 'lieu_naissance' => 'required|string|max:255',
-                'nationalite' => 'required|string|max:255',
-                'email' => 'required|email|unique:adhesions,email',
-                'telephone' => 'required|string|max:20',
                 'adresse' => 'required|string',
                 'ville' => 'required|string|max:255',
-                'profession' => 'required|string|max:255',
+                'situation_matrimoniale' => 'required|in:marie,divorce,union_libre,celibataire,veuf',
+                'nombre_enfants_charge' => 'required|integer|min:0',
+
+                // --- Pièces jointes ---
+                'photo' => 'required|image|mimes:jpeg,png,jpg|max:10240',
+                'carte_consulaire_fichier' => 'nullable|required_if:possede_carte_consulaire,1|file|mimes:jpeg,png,jpg,pdf|max:10240',
+                'cipr_fichier' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
+
+                // --- Statut professionnel ---
+                'profession' => 'required|in:etudiant,employe,entrepreneur,commercant,sans_emploi,autre',
+                'profession_autre' => 'nullable|required_if:profession,autre|string|max:255',
                 'niveau_etude' => 'required|string|max:255',
-                'motivation' => 'required|string|min:50'
+                'niveau_etude_autre' => 'nullable|string|max:255',
+                'dernier_diplome' => 'required|string|max:255',
+                'dernier_diplome_autre' => 'nullable|string|max:255',
+
+                // --- Branche Entrepreneur (si profession = entrepreneur) ---
+                'entrepreneur_domaine' => 'nullable|required_if:profession,entrepreneur|string|max:255',
+                'entrepreneur_domaine_autre' => 'nullable|string|max:255',
+                'entrepreneur_duree' => 'nullable|required_if:profession,entrepreneur|string|max:100',
+                'entrepreneur_nom_entreprise' => 'nullable|required_if:profession,entrepreneur|string|max:255',
+                'entrepreneur_fonction' => 'nullable|string|max:255',
+
+                // --- Branche Étudiant (si profession = etudiant) ---
+                'etablissement' => 'nullable|required_if:profession,etudiant|string|max:255',
+                'etudiant_filiere' => 'nullable|required_if:profession,etudiant|string|max:255',
+                'etudiant_annee' => 'nullable|required_if:profession,etudiant|string|max:50',
+
+                // --- Compétences, centres d'intérêt, loisirs, langues ---
+                'competences' => 'required|array|min:1',
+                'competences.*' => 'string|max:255',
+                'competences_autre' => 'nullable|string|max:255',
+                'centres_interet' => 'nullable|array',
+                'centres_interet.*' => 'string|max:255',
+                'domaines_interet_autre' => 'nullable|string|max:255',
+                'loisirs' => 'required|array|min:1',
+                'loisirs.*' => 'string|max:255',
+                'loisirs_autre' => 'nullable|string|max:255',
+                'disponibilite' => 'required|string|max:255',
+                'langues' => 'nullable|array',
+                'langues.*' => 'string|max:255',
+
+                // --- Engagement associatif ---
+                'comment_connu' => 'required|string|max:255',
+                'comment_connu_autre' => 'nullable|string|max:255',
+                'recommande_par' => 'nullable|string|max:255',
+                'motivation' => 'nullable|string',
+                'experience_associative' => 'required|boolean',
+                'experience_associative_details' => 'nullable|required_if:experience_associative,1|string',
+                'commissions_souhaitees' => 'nullable|array',
+                'commissions_souhaitees.*' => 'string|max:255',
+                'attentes' => 'nullable|string',
+
+                // --- Coordonnées ---
+                'email' => 'required|email|unique:adhesions,email',
+                'telephone' => 'required|string|max:20',
+                'autre_telephone' => 'nullable|string|max:20',
+
+                // --- Déclaration sur l'honneur ---
+                'declarant_nom_complet' => 'required|string|max:255',
+                'accepte_conditions' => 'required|accepted',
+                'souhaite_recevoir_actualites' => 'required|boolean',
+                'lettre_demande_fichiers' => 'nullable|array|max:5',
+                'lettre_demande_fichiers.*' => 'file|mimes:jpeg,png,jpg,pdf,doc,docx|max:20480',
             ]);
 
             if ($validator->fails()) {
@@ -86,20 +154,48 @@ class AdhesionController extends Controller
                 ], 422);
             }
 
-            // IMPORTANT : on n'utilise QUE les champs validés (jamais $request->all()).
-            // 'statut', 'date_traitement' et 'traite_par' sont fillable sur le modèle
-            // mais ne doivent JAMAIS pouvoir être fixés par un appelant public, sinon
-            // n'importe qui peut auto-approuver sa propre demande d'adhésion.
-            $adhesion = Adhesion::create($validator->validated());
+            // IMPORTANT : on part UNIQUEMENT des champs validés (jamais $request->all()).
+            $data = $validator->validated();
 
-            // Envoyer email de confirmation au candidat
+            $data['nationalite'] = $data['est_congolais']
+                ? 'Congolaise'
+                : ($data['nationalite'] ?? 'Non précisée');
+
+            $data['photo'] = str_replace('public/', '', $request->file('photo')->store('public/adhesions/photos'));
+
+            if ($request->hasFile('carte_consulaire_fichier')) {
+                $data['carte_consulaire_fichier'] = str_replace(
+                    'public/', '', $request->file('carte_consulaire_fichier')->store('public/adhesions/documents')
+                );
+            } else {
+                unset($data['carte_consulaire_fichier']);
+            }
+
+            if ($request->hasFile('cipr_fichier')) {
+                $data['cipr_fichier'] = str_replace(
+                    'public/', '', $request->file('cipr_fichier')->store('public/adhesions/documents')
+                );
+            } else {
+                unset($data['cipr_fichier']);
+            }
+
+            if ($request->hasFile('lettre_demande_fichiers')) {
+                $data['lettre_demande_fichiers'] = collect($request->file('lettre_demande_fichiers'))
+                    ->map(fn($file) => str_replace('public/', '', $file->store('public/adhesions/lettres')))
+                    ->values()
+                    ->all();
+            } else {
+                unset($data['lettre_demande_fichiers']);
+            }
+
+            $adhesion = Adhesion::create($data);
+
             try {
                 Mail::to($adhesion->email)->send(new ConfirmationAdhesion($adhesion));
             } catch (\Exception $e) {
                 \Log::error('Erreur envoi email confirmation candidat: ' . $e->getMessage());
             }
 
-            // Envoyer notification à l'admin
             try {
                 $adminEmail = config('mail.admin_address');
                 if (!$adminEmail) {
@@ -116,7 +212,7 @@ class AdhesionController extends Controller
                 'data' => $adhesion,
                 'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
             ], 201);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -126,9 +222,6 @@ class AdhesionController extends Controller
         }
     }
 
-    /**
-     * Traiter une demande d'adhésion (approuver/rejeter)
-     */
     public function traiter(Request $request, $id)
     {
         try {
@@ -145,22 +238,21 @@ class AdhesionController extends Controller
             }
 
             $adhesion = Adhesion::findOrFail($id);
-            
-            $oldStatut = $adhesion->statut;
+
             $adhesion->update([
                 'statut' => $request->statut,
                 'commentaire_traitement' => $request->commentaire,
-                'date_traitement' => now()
+                'date_traitement' => now(),
+                'traite_par' => auth()->id(),
             ]);
 
-            // Envoyer email de notification
             try {
                 Mail::to($adhesion->email)->send(new NotificationTraitementAdhesion($adhesion));
             } catch (\Exception $e) {
                 \Log::error('Erreur envoi email traitement: ' . $e->getMessage());
             }
 
-            $message = $request->statut === 'approuvee' 
+            $message = $request->statut === 'approuvee'
                 ? 'Demande approuvée avec succès. Un email a été envoyé au candidat.'
                 : 'Demande rejetée avec succès. Un email a été envoyé au candidat.';
 
@@ -170,7 +262,7 @@ class AdhesionController extends Controller
                 'data' => $adhesion,
                 'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
             ], 200);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -180,27 +272,24 @@ class AdhesionController extends Controller
         }
     }
 
-    /**
-     * Approuver une demande d'adhésion
-     */
     public function approuver($id)
     {
         try {
             $adhesion = Adhesion::findOrFail($id);
-            
+
             if ($adhesion->statut !== 'en_attente') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Cette demande a déjà été traitée'
                 ], 400);
             }
-            
+
             $adhesion->update([
                 'statut' => 'approuvee',
-                'date_traitement' => now()
+                'date_traitement' => now(),
+                'traite_par' => auth()->id(),
             ]);
 
-            // Envoyer email de notification
             try {
                 Mail::to($adhesion->email)->send(new NotificationTraitementAdhesion($adhesion));
             } catch (\Exception $e) {
@@ -213,7 +302,7 @@ class AdhesionController extends Controller
                 'data' => $adhesion,
                 'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
             ], 200);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -223,9 +312,6 @@ class AdhesionController extends Controller
         }
     }
 
-    /**
-     * Rejeter une demande d'adhésion
-     */
     public function rejeter(Request $request, $id)
     {
         try {
@@ -241,21 +327,21 @@ class AdhesionController extends Controller
             }
 
             $adhesion = Adhesion::findOrFail($id);
-            
+
             if ($adhesion->statut !== 'en_attente') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Cette demande a déjà été traitée'
                 ], 400);
             }
-            
+
             $adhesion->update([
                 'statut' => 'rejetee',
                 'commentaire_traitement' => $request->motif,
-                'date_traitement' => now()
+                'date_traitement' => now(),
+                'traite_par' => auth()->id(),
             ]);
 
-            // Envoyer email de notification
             try {
                 Mail::to($adhesion->email)->send(new NotificationTraitementAdhesion($adhesion));
             } catch (\Exception $e) {
@@ -268,7 +354,7 @@ class AdhesionController extends Controller
                 'data' => $adhesion,
                 'redirect_url' => config('app.frontend_url') . '/admin/adhesions/' . $adhesion->id
             ], 200);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -278,9 +364,6 @@ class AdhesionController extends Controller
         }
     }
 
-    /**
-     * Statistiques des demandes d'adhésion
-     */
     public function statistiques()
     {
         try {
@@ -310,9 +393,6 @@ class AdhesionController extends Controller
         }
     }
 
-    /**
-     * Supprimer une demande d'adhésion
-     */
     public function destroy($id)
     {
         try {
@@ -333,29 +413,25 @@ class AdhesionController extends Controller
         }
     }
 
-    /**
-     * Exporter les demandes en CSV
-     */
     public function exporter(Request $request)
     {
         try {
             $query = Adhesion::query();
-            
+
             if ($request->has('statut') && $request->statut !== 'tous') {
                 $query->where('statut', $request->statut);
             }
-            
+
             $adhesions = $query->orderBy('created_at', 'desc')->get();
-            
+
             $filename = "adhesions_ajdcb_" . now()->format('Y-m-d') . ".csv";
             $handle = fopen('php://temp', 'w');
-            
-            // En-têtes CSV
+
             fputcsv($handle, [
-                'ID', 'Nom', 'Prénom', 'Email', 'Téléphone', 
+                'ID', 'Nom', 'Prénom', 'Email', 'Téléphone',
                 'Ville', 'Profession', 'Statut', 'Date soumission', 'Date traitement'
             ]);
-            
+
             foreach ($adhesions as $adhesion) {
                 fputcsv($handle, [
                     $adhesion->id,
@@ -370,15 +446,15 @@ class AdhesionController extends Controller
                     $adhesion->date_traitement ? $adhesion->date_traitement->format('d/m/Y H:i') : ''
                 ]);
             }
-            
+
             rewind($handle);
             $content = stream_get_contents($handle);
             fclose($handle);
-            
+
             return response($content)
                 ->header('Content-Type', 'text/csv')
                 ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
