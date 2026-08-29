@@ -11,6 +11,7 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\EvenementController;
 use App\Http\Controllers\API\GuideController;
 use App\Http\Controllers\API\PartenaireController;
+use App\Http\Controllers\API\PaiementController;
 use App\Http\Controllers\ImageController;
 
 // ==================== ROUTES PUBLIQUES ====================
@@ -72,7 +73,14 @@ Route::prefix('v1')->group(function () {
     // Partenaires - Routes publiques (consultation)
     Route::get('/partenaires', [PartenaireController::class, 'index']);
     Route::get('/partenaires/{id}', [PartenaireController::class, 'show']);
+
+    // Paiements FedaPay - Routes publiques (un visiteur ou un membre paie sans être connecté)
+    Route::post('/paiements/cotisation', [PaiementController::class, 'initierCotisation']);
+    Route::post('/paiements/evenements/{id}', [PaiementController::class, 'initierEvenement']);
 });
+
+// Webhook FedaPay (PUBLIC — appelé par les serveurs FedaPay, pas par le navigateur)
+Route::post('/v1/paiements/webhook', [PaiementController::class, 'webhook']);
 
 // Détail d'une adhésion (PUBLIC — ex : page de suivi de candidature par lien direct)
 Route::get('/adhesions/{id}/details', [AdhesionController::class, 'show']);

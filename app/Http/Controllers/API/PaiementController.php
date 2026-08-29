@@ -22,9 +22,17 @@ class PaiementController extends Controller
      */
     public function initierCotisation(Request $request, FedaPayService $fedapay)
     {
+        // Rétro-compat : on accepte encore un `mois` unique (string), en plus
+        // du nouveau `mois` en tableau pour payer plusieurs mois d'un coup.
+        $moisInput = $request->input('mois');
+        if (is_string($moisInput)) {
+            $request->merge(['mois' => [$moisInput]]);
+        }
+
         $validator = Validator::make($request->all(), [
             'membre_id' => 'nullable|exists:membres,id',
-            'mois' => 'required|regex:/^\d{4}-\d{2}$/',
+            'mois' => 'required|array|min:1|max:12',
+            'mois.*' => 'regex:/^\d{4}-\d{2}$/',
             'nom_payeur' => 'required_without:membre_id|string|max:255',
             'telephone_payeur' => 'required|string|max:30',
             'email_payeur' => 'nullable|email|max:255',
@@ -35,12 +43,14 @@ class PaiementController extends Controller
         }
 
         $data = $validator->validated();
-        $montant = CotisationController::MONTANT_DEFAUT;
+        $moisListe = array_values(array_unique($data['mois']));
+        $montant = CotisationController::MONTANT_DEFAUT * count($moisListe);
 
         $paiement = Paiement::create([
             'type' => 'cotisation',
             'membre_id' => $data['membre_id'] ?? null,
-            'mois' => $data['mois'],
+            'mois' => $moisListe[0],
+            'mois_liste' => $moisListe,
             'nom_payeur' => $data['nom_payeur'] ?? null,
             'telephone_payeur' => $data['telephone_payeur'],
             'email_payeur' => $data['email_payeur'] ?? null,
@@ -49,10 +59,14 @@ class PaiementController extends Controller
             'statut' => 'en_attente',
         ]);
 
+        $description = count($moisListe) > 1
+            ? 'Cotisation AJDCB - ' . count($moisListe) . ' mois (' . implode(', ', $moisListe) . ')'
+            : "Cotisation AJDCB - {$moisListe[0]}";
+
         return $this->demarrerTransaction(
             $fedapay,
             $paiement,
-            "Cotisation AJDCB - {$data['mois']}",
+            $description,
             $data['nom_payeur'] ?? null,
             $data['telephone_payeur'],
             $data['email_payeur'] ?? null
@@ -233,16 +247,21 @@ class PaiementController extends Controller
     private function appliquerPaiementReussi(Paiement $paiement): void
     {
         if ($paiement->type === 'cotisation' && $paiement->membre_id) {
-            Cotisation::updateOrCreate(
-                ['membre_id' => $paiement->membre_id, 'mois' => $paiement->mois],
-                [
-                    'montant' => $paiement->montant,
-                    'statut' => 'payee',
-                    'date_paiement' => now()->toDateString(),
-                    'mode_paiement' => 'mobile_money',
-                    'commentaire' => 'Payé en ligne via FedaPay (paiement #' . $paiement->id . ')',
-                ]
-            );
+            $moisListe = $paiement->mois_liste ?: [$paiement->mois];
+            $montantParMois = count($moisListe) > 0 ? $paiement->montant / count($moisListe) : $paiement->montant;
+
+            foreach ($moisListe as $mois) {
+                Cotisation::updateOrCreate(
+                    ['membre_id' => $paiement->membre_id, 'mois' => $mois],
+                    [
+                        'montant' => $montantParMois,
+                        'statut' => 'payee',
+                        'date_paiement' => now()->toDateString(),
+                        'mode_paiement' => 'mobile_money',
+                        'commentaire' => 'Payé en ligne via FedaPay (paiement #' . $paiement->id . ')',
+                    ]
+                );
+            }
 
             // Premier paiement réussi d'un membre encore en attente : il devient actif.
             \App\Models\Membre::where('id', $paiement->membre_id)

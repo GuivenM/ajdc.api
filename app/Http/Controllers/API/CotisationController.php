@@ -41,6 +41,23 @@ class CotisationController extends Controller
                 ->keyBy('membre_id');
 
             $result = $membres->map(function ($membre) use ($cotisations, $mois) {
+                // Un membre n'a rien à devoir pour un mois antérieur à son
+                // adhésion — même règle que dans historiqueMembre().
+                if ($membre->created_at->format('Y-m') > $mois) {
+                    return [
+                        'membre_id' => $membre->id,
+                        'nom_complet' => $membre->nom_complet,
+                        'photo_url' => $membre->photo_url,
+                        'mois' => $mois,
+                        'cotisation_id' => null,
+                        'montant' => null,
+                        'statut' => 'anterieure_adhesion',
+                        'date_paiement' => null,
+                        'mode_paiement' => null,
+                        'commentaire' => null,
+                    ];
+                }
+
                 $cotisation = $cotisations->get($membre->id);
                 return [
                     'membre_id' => $membre->id,
@@ -146,8 +163,9 @@ class CotisationController extends Controller
     {
         try {
             $mois = $request->query('mois', now()->format('Y-m'));
+            $finMois = \Carbon\Carbon::createFromFormat('Y-m', $mois)->endOfMonth();
 
-            $nbMembres = Membre::actif()->count();
+            $nbMembres = Membre::actif()->where('created_at', '<=', $finMois)->count();
             $cotisationsMois = Cotisation::where('mois', $mois)->get();
             $nbPayees = $cotisationsMois->where('statut', 'payee')->count();
             $montantCollecte = $cotisationsMois->where('statut', 'payee')->sum('montant');

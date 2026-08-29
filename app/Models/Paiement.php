@@ -14,6 +14,7 @@ class Paiement extends Model
         'membre_id',
         'evenement_id',
         'mois',
+        'mois_liste',
         'nom_payeur',
         'telephone_payeur',
         'email_payeur',
@@ -26,6 +27,7 @@ class Paiement extends Model
     ];
 
     protected $casts = [
+        'mois_liste' => 'array',
         'montant' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
