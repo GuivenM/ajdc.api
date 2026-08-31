@@ -119,6 +119,58 @@ class MembreController extends Controller
     }
 
     /**
+     * Export CSV de tous les membres (espace admin), filtrable par statut
+     * pour rester cohérent avec les onglets affichés côté front.
+     *
+     * GET /v1/membres-admin/export?statut=tous|actif|en_attente_paiement|inactif
+     */
+    public function export(Request $request)
+    {
+        $statutFiltre = $request->query('statut', 'tous');
+
+        $query = Membre::orderByRaw('CASE
+                WHEN poste IS NOT NULL THEN 1
+                WHEN commission IS NOT NULL THEN 2
+                ELSE 3
+            END')
+            ->orderBy('nom');
+
+        if (in_array($statutFiltre, ['actif', 'en_attente_paiement', 'inactif'])) {
+            $query->where('statut', $statutFiltre);
+        }
+
+        $membres = $query->get();
+
+        $statutLabels = [
+            'actif' => 'Actif',
+            'en_attente_paiement' => 'En attente de paiement',
+            'inactif' => 'Inactif',
+        ];
+
+        return response()->streamDownload(function () use ($membres, $statutLabels) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, ['Nom', 'Prénom', 'Poste', 'Commission', 'Statut', 'WhatsApp', 'Membre depuis'], ';');
+
+            foreach ($membres as $m) {
+                fputcsv($handle, [
+                    $m->nom,
+                    $m->prenom,
+                    $m->poste ?? '',
+                    $m->commission ?? '',
+                    $statutLabels[$m->statut] ?? $m->statut,
+                    $m->whatsapp ?? '',
+                    $m->created_at->format('d/m/Y'),
+                ], ';');
+            }
+
+            fclose($handle);
+        }, 'membres.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
      * Ajouter un nouveau membre
      */
     public function store(Request $request, ImageCompressionService $compressor)

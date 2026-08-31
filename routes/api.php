@@ -163,6 +163,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     Route::prefix('cotisations')->group(function () {
         Route::get('/', [CotisationController::class, 'index']);
         Route::get('/statistiques', [CotisationController::class, 'statistiques']);
+        Route::get('/export', [CotisationController::class, 'export']);
         Route::get('/membre/{id}', [CotisationController::class, 'historiqueMembre']);
         Route::post('/marquer', [CotisationController::class, 'marquer'])
             ->middleware('role:super_admin,admin');
@@ -171,6 +172,7 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     // ========== MEMBRES ==========
     // Lecture de TOUS les membres (actifs + inactifs), réservé à l'espace admin.
     Route::get('/membres-admin/tous', [MembreController::class, 'tous']);
+    Route::get('/membres-admin/export', [MembreController::class, 'export']);
 
     // Lecture (bureau, commissions, etc.) : déjà publique. Créer/modifier : admin/super_admin.
     // Supprimer : super_admin uniquement.

@@ -193,6 +193,93 @@ class CotisationController extends Controller
     }
 
     /**
+     * Export CSV des cotisations d'un mois (respecte le même filtre statut
+     * que la liste affichée côté admin : tous / a_jour / en_retard).
+     *
+     * GET /v1/cotisations/export?mois=2026-08&statut=tous
+     */
+    public function export(Request $request)
+    {
+        $mois = $request->query('mois', now()->format('Y-m'));
+        $statutFiltre = $request->query('statut', 'tous'); // tous|a_jour|en_retard
+
+        if (!preg_match('/^\d{4}-\d{2}$/', $mois)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Format de mois invalide, attendu AAAA-MM'
+            ], 422);
+        }
+
+        $membres = Membre::actif()->orderBy('nom')->get();
+        $cotisations = Cotisation::where('mois', $mois)->get()->keyBy('membre_id');
+
+        $lignes = $membres->map(function ($membre) use ($cotisations, $mois) {
+            if ($membre->created_at->format('Y-m') > $mois) {
+                return [
+                    'nom_complet' => $membre->nom_complet,
+                    'statut' => 'anterieure_adhesion',
+                    'montant' => null,
+                    'date_paiement' => null,
+                    'mode_paiement' => null,
+                    'commentaire' => null,
+                ];
+            }
+
+            $c = $cotisations->get($membre->id);
+            return [
+                'nom_complet' => $membre->nom_complet,
+                'statut' => $c->statut ?? 'impayee',
+                'montant' => $c->montant ?? self::MONTANT_DEFAUT,
+                'date_paiement' => $c->date_paiement ?? null,
+                'mode_paiement' => $c->mode_paiement ?? null,
+                'commentaire' => $c->commentaire ?? null,
+            ];
+        });
+
+        if ($statutFiltre === 'a_jour') {
+            $lignes = $lignes->where('statut', 'payee');
+        } elseif ($statutFiltre === 'en_retard') {
+            $lignes = $lignes->where('statut', 'impayee');
+        }
+
+        $modeLabels = [
+            'especes' => 'Espèces',
+            'mobile_money' => 'Mobile Money',
+            'virement' => 'Virement',
+            'autre' => 'Autre',
+        ];
+        $statutLabels = [
+            'payee' => 'À jour',
+            'impayee' => 'En retard',
+            'anterieure_adhesion' => 'Pas encore membre',
+        ];
+
+        $filename = "cotisations_{$mois}.csv";
+
+        return response()->streamDownload(function () use ($lignes, $modeLabels, $statutLabels) {
+            $handle = fopen('php://output', 'w');
+            // BOM UTF-8 pour qu'Excel affiche correctement les accents.
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, ['Membre', 'Statut', 'Montant (FCFA)', 'Date de paiement', 'Mode de paiement', 'Commentaire'], ';');
+
+            foreach ($lignes as $l) {
+                fputcsv($handle, [
+                    $l['nom_complet'],
+                    $statutLabels[$l['statut']] ?? $l['statut'],
+                    $l['montant'] ?? '',
+                    $l['date_paiement'] ?? '',
+                    $l['mode_paiement'] ? ($modeLabels[$l['mode_paiement']] ?? $l['mode_paiement']) : '',
+                    $l['commentaire'] ?? '',
+                ], ';');
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
      * Historique des cotisations d'un membre (12 derniers mois) + alerte de
      * radiation si 3 mois consécutifs impayés (Règlement intérieur, Article 3).
      *
