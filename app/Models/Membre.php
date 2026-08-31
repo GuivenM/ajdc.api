@@ -5,11 +5,16 @@ namespace App\Models;
 use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Membre extends Model
+// Authenticatable (et non Model) : un Membre peut désormais posséder des
+// tokens Sanctum et se connecter à l'espace membre, séparément des comptes
+// `User` (admin/super_admin/moderateur) qui gardent leur propre espace.
+class Membre extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens, Notifiable;
 
     protected $fillable = [
         'adhesion_id',
@@ -23,12 +28,26 @@ class Membre extends Model
         'whatsapp',
         'poste',
         'commission',
-        'statut'
+        'statut',
+        'email',
+        'password',
+        'email_verified_at',
+        'derniere_connexion',
+        'activation_token',
+        'activation_token_expire_at',
+    ];
+
+    protected $hidden = [
+        'password',
+        'activation_token',
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        'updated_at' => 'datetime',
+        'email_verified_at' => 'datetime',
+        'derniere_connexion' => 'datetime',
+        'activation_token_expire_at' => 'datetime',
     ];
 
     protected $appends = ['nom_complet', 'photo_url', 'role'];
@@ -60,6 +79,11 @@ class Membre extends Model
     /**
      * Relations
      */
+    public function adhesion()
+    {
+        return $this->belongsTo(Adhesion::class);
+    }
+
     public function cotisations()
     {
         return $this->hasMany(Cotisation::class);

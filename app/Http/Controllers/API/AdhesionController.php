@@ -8,9 +8,11 @@ use App\Models\Membre;
 use App\Mail\ConfirmationAdhesion;
 use App\Mail\NotificationTraitementAdhesion;
 use App\Mail\NotificationNouvelleAdhesion;
+use App\Mail\ActivationCompteMembre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class AdhesionController extends Controller
 {
@@ -270,7 +272,10 @@ class AdhesionController extends Controller
                 // Le membre existe dès l'approbation, mais reste "en_attente_paiement"
                 // tant que la cotisation initiale (1000F, cf. PaiementController) n'est
                 // pas réglée. firstOrCreate évite un doublon si traiter() est rappelé.
-                Membre::firstOrCreate(
+                // Il peut néanmoins se connecter à son espace membre dès maintenant
+                // (voir MembreAuthController) — un bandeau l'invite juste à régler
+                // sa cotisation initiale.
+                $membre = Membre::firstOrCreate(
                     ['adhesion_id' => $adhesion->id],
                     [
                         'nom' => $adhesion->nom,
@@ -278,8 +283,25 @@ class AdhesionController extends Controller
                         'photo' => $adhesion->photo,
                         'whatsapp' => $adhesion->telephone,
                         'statut' => 'en_attente_paiement',
+                        'email' => $adhesion->email,
                     ]
                 );
+
+                // Compte membre pas encore activé (pas de mot de passe) : on
+                // (re)génère un lien d'activation à chaque approbation.
+                if (!$membre->password) {
+                    $membre->update([
+                        'email' => $membre->email ?: $adhesion->email,
+                        'activation_token' => Str::random(64),
+                        'activation_token_expire_at' => now()->addDays(7),
+                    ]);
+
+                    try {
+                        Mail::to($membre->email)->send(new ActivationCompteMembre($membre));
+                    } catch (\Exception $e) {
+                        \Log::error('Erreur envoi email activation membre: ' . $e->getMessage());
+                    }
+                }
             }
 
             // Envoyer email de notification
