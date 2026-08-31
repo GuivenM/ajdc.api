@@ -8,6 +8,7 @@ use App\Http\Controllers\API\AdhesionController;
 use App\Http\Controllers\API\MembreController;
 use App\Http\Controllers\API\CotisationController;
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\MembreAuthController;
 use App\Http\Controllers\API\EvenementController;
 use App\Http\Controllers\API\GuideController;
 use App\Http\Controllers\API\PartenaireController;
@@ -26,9 +27,15 @@ Route::get('/test', function() {
     ]);
 });
 
-// Auth
+// Auth (espace admin)
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
+});
+
+// Auth (espace membre) — distinct de l'espace admin ci-dessus
+Route::prefix('v1/membre/auth')->group(function () {
+    Route::post('/activer-compte', [MembreAuthController::class, 'activerCompte']);
+    Route::post('/login', [MembreAuthController::class, 'login']);
 });
 
 // Messages - Routes publiques (création et consultation publique)
@@ -237,5 +244,17 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
             ->middleware('role:super_admin,admin');
         Route::delete('/{id}', [PartenaireController::class, 'destroy'])
             ->middleware('role:super_admin');
+    });
+});
+
+// ==================== ROUTES PROTÉGÉES — ESPACE MEMBRE ====================
+// Séparées des routes admin ci-dessus : un token Membre ne peut pas accéder
+// aux routes admin (elles vérifient $user->role, absent sur Membre), et le
+// middleware 'membre' bloque symétriquement un token admin ici.
+Route::middleware(['auth:sanctum', 'membre'])->prefix('v1/membre')->group(function () {
+    Route::prefix('auth')->group(function () {
+        Route::post('/logout', [MembreAuthController::class, 'logout']);
+        Route::get('/me', [MembreAuthController::class, 'me']);
+        Route::post('/change-password', [MembreAuthController::class, 'changePassword']);
     });
 });

@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'role' => \App\Http\Middleware\CheckRole::class,
+            'membre' => \App\Http\Middleware\EnsureIsMembre::class,
         ]);
 
         // ATTENTION : ce projet est une API pure (aucune route web/vue de
