@@ -1,59 +1,98 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# AJDCB API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Backend Laravel de l'Association des Jeunes de la Diaspora Congolaise au Bénin (AJDCB). Sert le site vitrine public et l'espace d'administration ([ajdcb.app](https://github.com/GuivenM/ajdcb.app)) via une API REST versionnée (`/api/v1/...`).
 
-## About Laravel
+## Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Laravel 12** / PHP 8.2+
+- **Laravel Sanctum** — auth par token pour l'espace admin
+- **fedapay/fedapay-php** — paiements en ligne (cotisations, événements payants)
+- **intervention/image** — traitement d'images
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Installation
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```bash
+composer install
+cp .env.example .env   # à créer si absent — voir "Variables d'environnement" ci-dessous
+php artisan key:generate
+php artisan migrate
+php artisan storage:link
+php artisan serve
+```
 
-## Learning Laravel
+`storage:link` est indispensable : toutes les images/documents uploadés (photos de membres, logos partenaires, documents du guide…) sont servis via le disque `public` (`storage/app/public/...` → `public/storage/...`).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Variables d'environnement importantes
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+| Variable | Rôle |
+|---|---|
+| `APP_URL` | Doit correspondre **exactement** à l'adresse et au port réels du serveur (ex: `http://localhost:8000` si lancé via `artisan serve`). Sert à générer les URLs de fichiers (`Storage::disk('public')->url()`) — un mauvais port ici casse l'affichage de toutes les images. |
+| `FRONTEND_URL` | URL du frontend `ajdcb.app`, utilisée dans les emails et les redirections post-paiement. |
+| `MAIL_ADMIN_ADDRESS` | Adresse recevant les notifications (nouvelle adhésion, nouveau message). Défaut : `contact@ajdcb.org`. |
+| `FEDAPAY_ENVIRONMENT` | `sandbox` ou `live`. |
+| `FEDAPAY_SECRET_KEY` / `FEDAPAY_PUBLIC_KEY` | Clés API FedaPay. |
+| `FEDAPAY_WEBHOOK_SECRET` | Secret pour vérifier la signature `X-FEDAPAY-SIGNATURE` du webhook. |
+| `FEDAPAY_CALLBACK_URL` | URL de retour après paiement (défaut : `{FRONTEND_URL}/paiement/retour`). |
+| `SANCTUM_STATEFUL_DOMAINS` / CORS | À adapter si le frontend n'est pas sur `localhost:5173`. |
 
-## Laravel Sponsors
+## Modèle de données
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+| Modèle | Rôle |
+|---|---|
+| `Adhesion` | Candidature d'adhésion — reflète le formulaire complet (nationalité, pièces d'identité, état civil, statut pro étudiant/entrepreneur, compétences, langues, engagement associatif, déclaration sur l'honneur). Statuts : `en_attente` / `approuvee` / `rejetee`. |
+| `Membre` | Membre effectif de l'association. Lié à son `Adhesion` d'origine (`adhesion_id`). Statuts : `actif` / `inactif` / `en_attente_paiement` (créé automatiquement à l'approbation d'une adhésion, passe à `actif` dès le premier paiement de cotisation confirmé). |
+| `Cotisation` | Une ligne par membre et par mois (`mois` au format `AAAA-MM`, unique par membre). Statuts : `payee` / `impayee` / `anterieure_adhesion` (mois avant l'arrivée du membre — jamais compté comme une dette). |
+| `Paiement` | Transaction FedaPay (cotisation ou événement payant). Alimentée par `PaiementController` + `FedaPayService`. |
+| `Actualite` | Articles/annonces éditoriales du site (types : actualité, événement, éducation, culture). |
+| `Action` | Bilan/programme d'activités de l'association, organisé par commission (`solidarite`, `education`, `culture`, `communication` — les 4 commissions du règlement intérieur, Article 8). |
+| `Evenement` | Événements calendaires structurés : dates, lieu, capacité, prix/billetterie, organisateur — distinct des `Actualite` de type "événement" qui ne sont que des articles. |
+| `GuideSection` / `GuideSousSection` / `GuideDocument` | Guide pratique à 3 niveaux, avec documents téléchargeables (PDF/Word/Excel/PowerPoint). |
+| `Partenaire` | Institutions/ONG/entreprises partenaires, avec niveau de partenariat (or/argent/bronze/institutionnel/technique). |
+| `Message` | Messages du formulaire de contact public, avec `objet` catégorisé (question, partenariat, adhésion, urgence, information, réclamation, autre). |
+| `User` | Comptes admin. Rôles : `super_admin`, `admin`, `moderateur`. |
 
-### Premium Partners
+### Le parcours adhésion → membre → cotisation
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+1. Un candidat remplit le formulaire public complet (`POST /adhesions`).
+2. Un admin approuve (`PUT /adhesions/{id}/traiter`) → un `Membre` est créé automatiquement, statut `en_attente_paiement`.
+3. Le membre paie sa première cotisation (1 000 FCFA, Article 2 du règlement intérieur) — manuellement via `POST /cotisations/marquer`, ou en ligne via FedaPay (voir point d'attention ci-dessous).
+4. Dès qu'une cotisation est marquée payée pour un membre `en_attente_paiement`, celui-ci passe `actif`.
 
-## Contributing
+### Rôles et permissions
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Vérifiés par le middleware `role:...` sur les routes protégées. Convention constante dans tout le projet :
+- **Lecture** (`index`/`show`) : les 3 rôles.
+- **Créer/modifier** : `admin` et `super_admin` (Actualités accepte aussi `moderateur` en création).
+- **Supprimer** : `super_admin` uniquement.
 
-## Code of Conduct
+## Structure des routes (`routes/api.php`)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Toutes préfixées `/api/v1/...`.
 
-## Security Vulnerabilities
+**Publiques** (`Route::prefix('v1')`, hors auth) :
+`POST /messages`, `POST /adhesions`, lecture (`GET`) de `actualites`, `actions`, `membres`, `evenements`, `guide`, `partenaires`.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+**Protégées** (`auth:sanctum` + `prefix('v1')`) : CRUD complet pour chaque ressource ci-dessus, plus :
+- `GET /membres-admin/tous` — seule route qui renvoie aussi les membres **inactifs** (la route publique `/membres` ne renvoie que les actifs).
+- `PUT /adhesions/{id}/traiter` — approuver/rejeter, crée automatiquement un `Membre`.
+- `GET /cotisations`, `POST /cotisations/marquer`, `GET /cotisations/statistiques`, `GET /cotisations/membre/{id}` — suivi mensuel des cotisations.
 
-## License
+### ⚠️ Point d'attention : routes `Paiement` non enregistrées
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+`PaiementController` (méthodes `initierCotisation`, `initierEvenement`, `webhook`) et `FedaPayService` sont **implémentés mais leurs routes ne sont pas déclarées dans `routes/api.php`**. Les endpoints documentés en commentaire dans le contrôleur (`POST /v1/paiements/cotisation`, `POST /v1/paiements/evenements/{id}`, `POST /paiements/webhook`) ne répondent donc pas encore. `FedaPayButton.tsx` côté frontend les appelle déjà — il faut ajouter ces routes pour que le paiement en ligne fonctionne de bout en bout.
+
+## Stockage de fichiers
+
+Tous les uploads (photos, logos, documents) utilisent le disque `public` explicitement :
+```php
+$request->file('photo')->store('membres', 'public');
+```
+et les accesseurs de modèle (`photo_url`, `image_url`, `logo_url`, `fichier_url`) génèrent l'URL via `Storage::disk('public')->url($path)`. Ne pas utiliser `->store('public/...')` sur le disque par défaut — Laravel 11+ a changé la racine du disque `local` vers `storage/app/private`, ce qui casse ce raccourci historique.
+
+**Piège Windows/WAMP** : `storage:link` crée un lien symbolique ; si la commande échoue silencieusement, relancer le terminal en administrateur ou activer le Mode développeur Windows.
+
+## Notes de fiabilité
+
+- Les modèles utilisent `protected $appends` pour exposer leurs accesseurs calculés (`nom_complet`, `photo_url`, `statut_label`, etc.) dans les réponses JSON — un accesseur qui n'y figure pas est invisible côté API même s'il existe dans le code.
+- `AdhesionController::store()` construit ses données **uniquement** à partir des champs validés (`$validator->validated()`), jamais de `$request->all()` — évite qu'un candidat s'auto-approuve en injectant `statut`/`traite_par`.
+- `CotisationController::index()`/`statistiques()` excluent les mois antérieurs à la date d'adhésion d'un membre — ne jamais recompter tous les membres actifs sans vérifier `created_at` par rapport au mois consulté.
