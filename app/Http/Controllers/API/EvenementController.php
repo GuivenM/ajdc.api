@@ -7,6 +7,7 @@ use App\Models\Evenement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ImageCompressionService;
 
 class EvenementController extends Controller
 {
@@ -67,7 +68,7 @@ class EvenementController extends Controller
     /**
      * Créer un nouvel événement
      */
-    public function store(Request $request)
+    public function store(Request $request, ImageCompressionService $compressor)
     {
         try {
             $validator = Validator::make($request->all(), [
@@ -105,8 +106,7 @@ class EvenementController extends Controller
             $data = $validator->validated();
 
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('evenements', 'public');
-                $data['image'] = str_replace('public/', '', $path);
+                $data['image'] = $compressor->store($request->file('image'), 'evenements');
             }
 
             $evenement = Evenement::create($data);
@@ -128,7 +128,7 @@ class EvenementController extends Controller
     /**
      * Mettre à jour un événement
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, ImageCompressionService $compressor)
     {
         try {
             $evenement = Evenement::findOrFail($id);
@@ -171,8 +171,7 @@ class EvenementController extends Controller
                 if ($evenement->image) {
                     Storage::delete('public/' . $evenement->image);
                 }
-                $path = $request->file('image')->store('evenements', 'public');
-                $data['image'] = str_replace('public/', '', $path);
+                $data['image'] = $compressor->store($request->file('image'), 'evenements');
             }
 
             $evenement->update($data);

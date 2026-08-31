@@ -7,6 +7,7 @@ use App\Models\Action;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ImageCompressionService;
 
 class ActionController extends Controller
 {
@@ -87,7 +88,7 @@ class ActionController extends Controller
     /**
      * Créer une nouvelle action
      */
-    public function store(Request $request)
+    public function store(Request $request, ImageCompressionService $compressor)
     {
         try {
             $validator = Validator::make($request->all(), [
@@ -116,8 +117,7 @@ class ActionController extends Controller
 
             // Gérer l'upload de l'image
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('actions', 'public');
-                $data['image'] = str_replace('public/', '', $path);
+                $data['image'] = $compressor->store($request->file('image'), 'actions');
             }
 
             // Les champs objectifs / activites_cles / resultats sont castés en
@@ -145,7 +145,7 @@ class ActionController extends Controller
     /**
      * Mettre à jour une action
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, ImageCompressionService $compressor)
     {
         try {
             $action = Action::findOrFail($id);
@@ -181,8 +181,7 @@ class ActionController extends Controller
                     Storage::delete('public/' . $action->image);
                 }
                 
-                $path = $request->file('image')->store('actions', 'public');
-                $data['image'] = str_replace('public/', '', $path);
+                $data['image'] = $compressor->store($request->file('image'), 'actions');
             }
 
             $action->update($data);

@@ -7,6 +7,7 @@ use App\Models\Actualite;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ImageCompressionService;
 
 class ActualiteController extends Controller
 {
@@ -110,7 +111,7 @@ class ActualiteController extends Controller
     /**
      * Créer une nouvelle actualité
      */
-    public function store(Request $request)
+    public function store(Request $request, ImageCompressionService $compressor)
 {
     try {
         $validator = Validator::make($request->all(), [
@@ -138,8 +139,7 @@ class ActualiteController extends Controller
         // Le slug sera généré automatiquement par le modèle
 
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('actualites', 'public');
-            $data['image'] = str_replace('public/', '', $imagePath);
+            $data['image'] = $compressor->store($request->file('image'), 'actualites');
         }
 
         $actualite = Actualite::create($data);
@@ -161,7 +161,7 @@ class ActualiteController extends Controller
     /**
      * Mettre à jour une actualité
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, ImageCompressionService $compressor)
     {
         try {
             $actualite = Actualite::findOrFail($id);
@@ -192,8 +192,7 @@ class ActualiteController extends Controller
                     Storage::delete('public/' . $actualite->image);
                 }
                 
-                $imagePath = $request->file('image')->store('actualites', 'public');
-                $data['image'] = str_replace('public/', '', $imagePath);
+                $data['image'] = $compressor->store($request->file('image'), 'actualites');
             }
 
             $actualite->update($data);

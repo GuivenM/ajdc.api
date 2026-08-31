@@ -7,6 +7,7 @@ use App\Models\Membre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ImageCompressionService;
 
 class MembreController extends Controller
 {
@@ -120,7 +121,7 @@ class MembreController extends Controller
     /**
      * Ajouter un nouveau membre
      */
-    public function store(Request $request)
+    public function store(Request $request, ImageCompressionService $compressor)
     {
         try {
             $validator = Validator::make($request->all(), [
@@ -145,10 +146,9 @@ class MembreController extends Controller
 
             $data = $request->except('photo');
 
-            // Gérer l'upload de la photo
+            // Gérer l'upload de la photo (compressée + convertie en WebP)
             if ($request->hasFile('photo')) {
-                $path = $request->file('photo')->store('membres', 'public');
-                $data['photo'] = str_replace('public/', '', $path);
+                $data['photo'] = $compressor->store($request->file('photo'), 'membres');
             }
 
             $membre = Membre::create($data);
@@ -191,7 +191,7 @@ class MembreController extends Controller
     /**
      * Mettre à jour un membre
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, ImageCompressionService $compressor)
     {
         try {
             $membre = Membre::findOrFail($id);
@@ -226,8 +226,7 @@ class MembreController extends Controller
                     Storage::delete('public/' . $membre->photo);
                 }
                 
-                $path = $request->file('photo')->store('membres', 'public');
-                $data['photo'] = str_replace('public/', '', $path);
+                $data['photo'] = $compressor->store($request->file('photo'), 'membres');
             }
 
             $membre->update($data);
