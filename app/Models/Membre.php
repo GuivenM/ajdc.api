@@ -89,6 +89,13 @@ class Membre extends Authenticatable
         return $this->hasMany(Cotisation::class);
     }
 
+    public function evenements()
+    {
+        return $this->belongsToMany(Evenement::class, 'participations')
+                    ->withPivot('statut', 'date_inscription', 'commentaire')
+                    ->withTimestamps();
+    }
+
     /**
      * Scopes
      */

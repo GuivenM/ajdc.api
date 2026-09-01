@@ -280,6 +280,19 @@ class CotisationController extends Controller
     }
 
     /**
+     * Historique des cotisations du membre connecté — même logique que
+     * historiqueMembre(), mais l'id vient du token authentifié, jamais de
+     * l'URL, pour qu'un membre ne puisse jamais consulter les cotisations
+     * d'un autre membre.
+     *
+     * GET /v1/membre/mes-cotisations
+     */
+    public function mesCotisations(Request $request)
+    {
+        return $this->historiqueMembre($request->user()->id);
+    }
+
+    /**
      * Historique des cotisations d'un membre (12 derniers mois) + alerte de
      * radiation si 3 mois consécutifs impayés (Règlement intérieur, Article 3).
      *
