@@ -9,6 +9,7 @@ use App\Http\Controllers\API\MembreController;
 use App\Http\Controllers\API\CotisationController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\MembreAuthController;
+use App\Http\Controllers\API\MembreEspaceController;
 use App\Http\Controllers\API\EvenementController;
 use App\Http\Controllers\API\GuideController;
 use App\Http\Controllers\API\PartenaireController;
@@ -257,4 +258,10 @@ Route::middleware(['auth:sanctum', 'membre'])->prefix('v1/membre')->group(functi
         Route::get('/me', [MembreAuthController::class, 'me']);
         Route::post('/change-password', [MembreAuthController::class, 'changePassword']);
     });
+
+    Route::put('/profil', [MembreEspaceController::class, 'updateProfil']);
+    Route::get('/mes-cotisations', [CotisationController::class, 'mesCotisations']);
+    Route::get('/evenements', [MembreEspaceController::class, 'evenements']);
+    Route::post('/evenements/{id}/inscription', [MembreEspaceController::class, 'inscrire']);
+    Route::delete('/evenements/{id}/inscription', [MembreEspaceController::class, 'desinscrire']);
 });
