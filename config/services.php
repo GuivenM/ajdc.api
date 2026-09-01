@@ -46,4 +46,15 @@ return [
         'callback_url' => env('FEDAPAY_CALLBACK_URL', env('FRONTEND_URL', 'http://localhost:5173') . '/paiement/retour'),
     ],
 
+    'facebook' => [
+        // ID de la Page AJDCB (visible dans Paramètres de la Page > À propos,
+        // ou via https://graph.facebook.com/{nom-de-la-page}?fields=id).
+        'page_id' => env('FACEBOOK_PAGE_ID'),
+        // Token d'accès de PAGE longue durée (pas un token utilisateur) généré
+        // via Meta for Developers avec le scope pages_manage_posts. Sans ces
+        // deux valeurs, le bouton "Publier sur Facebook" reste désactivé côté
+        // admin et seul le lien de partage manuel est proposé.
+        'page_token' => env('FACEBOOK_PAGE_ACCESS_TOKEN'),
+    ],
+
 ];

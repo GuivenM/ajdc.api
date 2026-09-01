@@ -24,7 +24,8 @@ class Actualite extends Model
         'date_evenement',
         'lieu_evenement',
         'auteur',
-        'statut'
+        'statut',
+        'facebook_post_url',
     ];
 
     protected $casts = [
@@ -70,14 +71,48 @@ class Actualite extends Model
         return $query->publie()->orderBy('created_at', 'desc')->limit($limit);
     }
 
-    protected $appends = ['image_url', 'date', 'type_label', 'extrait'];
+    /**
+     * Galerie multi-photos (nouveau). Le champ `image` legacy reste rempli
+     * pour les actualités créées avant cette fonctionnalité — `image_url`
+     * bascule automatiquement sur la 1ère photo de la galerie dès qu'il y
+     * en a une, sans casser l'affichage des anciennes actualités.
+     */
+    public function photos()
+    {
+        return $this->hasMany(ActualitePhoto::class)->orderBy('ordre');
+    }
+
+    protected $appends = ['image_url', 'date', 'type_label', 'extrait', 'lien_public', 'photos_urls'];
 
     /**
      * Accesseurs
      */
     public function getImageUrlAttribute()
     {
+        $premierePhoto = $this->relationLoaded('photos') ? $this->photos->first() : $this->photos()->first();
+        if ($premierePhoto) {
+            return $premierePhoto->url;
+        }
+
         return $this->image ? Storage::disk('public')->url($this->image) : null;
+    }
+
+    public function getPhotosUrlsAttribute()
+    {
+        $photos = $this->relationLoaded('photos') ? $this->photos : $this->photos()->get();
+
+        if ($photos->isNotEmpty()) {
+            return $photos->pluck('url')->values();
+        }
+
+        // Compat : anciennes actualités avec une seule image legacy.
+        return $this->image ? collect([Storage::disk('public')->url($this->image)]) : collect();
+    }
+
+    public function getLienPublicAttribute()
+    {
+        $base = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
+        return "{$base}/news/{$this->id}";
     }
 
     public function getDateAttribute()

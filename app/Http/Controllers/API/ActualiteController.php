@@ -4,6 +4,8 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Actualite;
+use App\Models\ActualitePhoto;
+use App\Services\FacebookPublisherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +19,7 @@ class ActualiteController extends Controller
     public function index()
     {
         try {
-            $actualites = Actualite::orderBy('created_at', 'desc')->get();
+            $actualites = Actualite::with('photos')->orderBy('created_at', 'desc')->get();
             
             return response()->json([
                 'success' => true,
@@ -40,7 +42,8 @@ class ActualiteController extends Controller
     public function getByType($type)
     {
         try {
-            $actualites = Actualite::where('type', $type)
+            $actualites = Actualite::with('photos')
+                ->where('type', $type)
                 ->where('statut', 'publie')
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -66,7 +69,8 @@ class ActualiteController extends Controller
     public function dernieresActualites()
     {
         try {
-            $actualites = Actualite::where('statut', 'publie')
+            $actualites = Actualite::with('photos')
+                ->where('statut', 'publie')
                 ->orderBy('created_at', 'desc')
                 ->limit(3)
                 ->get();
@@ -92,7 +96,7 @@ class ActualiteController extends Controller
     public function show($id)
     {
         try {
-            $actualite = Actualite::findOrFail($id);
+            $actualite = Actualite::with('photos')->findOrFail($id);
             
             return response()->json([
                 'success' => true,
@@ -120,6 +124,8 @@ class ActualiteController extends Controller
             'contenu' => 'required|string',
             'type' => 'required|in:actualite,evenement,education,culture',
            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
+            'photos' => 'nullable|array|max:10',
+            'photos.*' => 'image|mimes:jpeg,png,jpg|max:20480',
             'date_evenement' => 'nullable|date',
             'lieu_evenement' => 'nullable|string|max:255',
             'statut' => 'sometimes|in:publie,brouillon'
@@ -132,7 +138,7 @@ class ActualiteController extends Controller
             ], 422);
         }
 
-        $data = $request->except('image');
+        $data = $request->except(['image', 'photos']);
         
         // Valeurs par défaut
         $data['auteur'] = 'AJDCB';
@@ -143,6 +149,17 @@ class ActualiteController extends Controller
         }
 
         $actualite = Actualite::create($data);
+
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $ordre => $photo) {
+                ActualitePhoto::create([
+                    'actualite_id' => $actualite->id,
+                    'chemin' => $compressor->store($photo, 'actualites'),
+                    'ordre' => $ordre,
+                ]);
+            }
+            $actualite->load('photos');
+        }
 
         return response()->json([
             'success' => true,
@@ -172,6 +189,10 @@ class ActualiteController extends Controller
                 'contenu' => 'sometimes|string',
                 'type' => 'sometimes|in:actualite,evenement,education,culture',
                 'image' => 'nullable|image|mimes:jpeg,png,jpg|max:20480',
+                'photos' => 'nullable|array|max:10',
+                'photos.*' => 'image|mimes:jpeg,png,jpg|max:20480',
+                'photos_supprimees' => 'nullable|array',
+                'photos_supprimees.*' => 'integer|exists:actualite_photos,id',
                 'date_evenement' => 'nullable|date',
                 'lieu_evenement' => 'nullable|string|max:255',
                 'statut' => 'sometimes|in:publie,brouillon'
@@ -184,7 +205,7 @@ class ActualiteController extends Controller
                 ], 422);
             }
 
-            $data = $request->except('image');
+            $data = $request->except(['image', 'photos', 'photos_supprimees']);
 
             if ($request->hasFile('image')) {
                 // Supprimer l'ancienne image
@@ -196,6 +217,29 @@ class ActualiteController extends Controller
             }
 
             $actualite->update($data);
+
+            // Retirer les photos que l'admin a explicitement décochées dans la galerie.
+            if ($request->filled('photos_supprimees')) {
+                $aSupprimer = $actualite->photos()->whereIn('id', $request->input('photos_supprimees'))->get();
+                foreach ($aSupprimer as $photo) {
+                    Storage::delete('public/' . $photo->chemin);
+                    $photo->delete();
+                }
+            }
+
+            // Ajouter les nouvelles photos à la suite de la galerie existante.
+            if ($request->hasFile('photos')) {
+                $prochainOrdre = ($actualite->photos()->max('ordre') ?? -1) + 1;
+                foreach ($request->file('photos') as $i => $photo) {
+                    ActualitePhoto::create([
+                        'actualite_id' => $actualite->id,
+                        'chemin' => $compressor->store($photo, 'actualites'),
+                        'ordre' => $prochainOrdre + $i,
+                    ]);
+                }
+            }
+
+            $actualite->load('photos');
 
             return response()->json([
                 'success' => true,
@@ -218,11 +262,17 @@ class ActualiteController extends Controller
     public function destroy($id)
     {
         try {
-            $actualite = Actualite::findOrFail($id);
+            $actualite = Actualite::with('photos')->findOrFail($id);
             
             // Supprimer l'image
             if ($actualite->image) {
                 Storage::delete('public/' . $actualite->image);
+            }
+
+            // Supprimer les fichiers de la galerie (les lignes partent avec le
+            // cascadeOnDelete de la migration, mais pas les fichiers sur disque).
+            foreach ($actualite->photos as $photo) {
+                Storage::delete('public/' . $photo->chemin);
             }
             
             $actualite->delete();
@@ -238,6 +288,58 @@ class ActualiteController extends Controller
                 'message' => 'Erreur lors de la suppression de l\'actualité',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Indique si l'auto-publication Facebook est configurée côté serveur
+     * (Page + token présents) — le front s'en sert pour afficher soit le
+     * bouton "Publier sur Facebook" (auto), soit un lien de partage manuel.
+     *
+     * GET /v1/actualites/partage-config
+     */
+    public function partageConfig(FacebookPublisherService $facebook)
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'facebook_configure' => $facebook->isConfigured(),
+            ],
+        ]);
+    }
+
+    /**
+     * Publie l'actualité sur la Page Facebook de l'association (photo +
+     * légende si l'actualité a une image, sinon lien avec aperçu).
+     * Idempotent en pratique : le lien du post est renvoyé au front qui
+     * désactive le bouton une fois `facebook_post_url` renseigné.
+     *
+     * POST /v1/actualites/{id}/partager-facebook
+     */
+    public function partagerFacebook($id, FacebookPublisherService $facebook)
+    {
+        try {
+            $actualite = Actualite::findOrFail($id);
+
+            $url = $facebook->publier($actualite);
+            $actualite->update(['facebook_post_url' => $url]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Actualité publiée sur Facebook',
+                'data' => $actualite,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Actualité non trouvée',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Échec de la publication sur Facebook',
+                'error' => $e->getMessage(),
+            ], 502);
         }
     }
 

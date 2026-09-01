@@ -1,0 +1,236 @@
+diff --git a/app/Http/Controllers/API/ActualiteController.php b/app/Http/Controllers/API/ActualiteController.php
+index de2f5c2..69076d3 100644
+--- a/app/Http/Controllers/API/ActualiteController.php
++++ b/app/Http/Controllers/API/ActualiteController.php
+@@ -4,6 +4,7 @@
+ 
+ use App\Http\Controllers\Controller;
+ use App\Models\Actualite;
++use App\Services\FacebookPublisherService;
+ use Illuminate\Http\Request;
+ use Illuminate\Support\Facades\Validator;
+ use Illuminate\Support\Facades\Storage;
+@@ -241,6 +242,58 @@ public function destroy($id)
+         }
+     }
+ 
++    /**
++     * Indique si l'auto-publication Facebook est configurée côté serveur
++     * (Page + token présents) — le front s'en sert pour afficher soit le
++     * bouton "Publier sur Facebook" (auto), soit un lien de partage manuel.
++     *
++     * GET /v1/actualites/partage-config
++     */
++    public function partageConfig(FacebookPublisherService $facebook)
++    {
++        return response()->json([
++            'success' => true,
++            'data' => [
++                'facebook_configure' => $facebook->isConfigured(),
++            ],
++        ]);
++    }
++
++    /**
++     * Publie l'actualité sur la Page Facebook de l'association (photo +
++     * légende si l'actualité a une image, sinon lien avec aperçu).
++     * Idempotent en pratique : le lien du post est renvoyé au front qui
++     * désactive le bouton une fois `facebook_post_url` renseigné.
++     *
++     * POST /v1/actualites/{id}/partager-facebook
++     */
++    public function partagerFacebook($id, FacebookPublisherService $facebook)
++    {
++        try {
++            $actualite = Actualite::findOrFail($id);
++
++            $url = $facebook->publier($actualite);
++            $actualite->update(['facebook_post_url' => $url]);
++
++            return response()->json([
++                'success' => true,
++                'message' => 'Actualité publiée sur Facebook',
++                'data' => $actualite,
++            ]);
++        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
++            return response()->json([
++                'success' => false,
++                'message' => 'Actualité non trouvée',
++            ], 404);
++        } catch (\Exception $e) {
++            return response()->json([
++                'success' => false,
++                'message' => 'Échec de la publication sur Facebook',
++                'error' => $e->getMessage(),
++            ], 502);
++        }
++    }
++
+     /**
+      * Rechercher des actualités
+      */
+diff --git a/app/Models/Actualite.php b/app/Models/Actualite.php
+index 9f4d84d..7d6d771 100644
+--- a/app/Models/Actualite.php
++++ b/app/Models/Actualite.php
+@@ -24,7 +24,8 @@ class Actualite extends Model
+         'date_evenement',
+         'lieu_evenement',
+         'auteur',
+-        'statut'
++        'statut',
++        'facebook_post_url',
+     ];
+ 
+     protected $casts = [
+@@ -70,7 +71,7 @@ public function scopeRecents($query, $limit = 5)
+         return $query->publie()->orderBy('created_at', 'desc')->limit($limit);
+     }
+ 
+-    protected $appends = ['image_url', 'date', 'type_label', 'extrait'];
++    protected $appends = ['image_url', 'date', 'type_label', 'extrait', 'lien_public'];
+ 
+     /**
+      * Accesseurs
+@@ -80,6 +81,12 @@ public function getImageUrlAttribute()
+         return $this->image ? Storage::disk('public')->url($this->image) : null;
+     }
+ 
++    public function getLienPublicAttribute()
++    {
++        $base = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
++        return "{$base}/news/{$this->id}";
++    }
++
+     public function getDateAttribute()
+     {
+         return $this->created_at->format('d/m/Y');
+diff --git a/app/Services/FacebookPublisherService.php b/app/Services/FacebookPublisherService.php
+new file mode 100644
+index 0000000..dec3898
+--- /dev/null
++++ b/app/Services/FacebookPublisherService.php
+@@ -0,0 +1,73 @@
++<?php
++
++namespace App\Services;
++
++use App\Models\Actualite;
++use Illuminate\Support\Facades\Http;
++use RuntimeException;
++
++class FacebookPublisherService
++{
++    /**
++     * true si une Page + un token sont configurés (voir .env.example) —
++     * permet au front de savoir s'il doit proposer l'auto-publication
++     * ou seulement le lien de partage manuel.
++     */
++    public function isConfigured(): bool
++    {
++        return filled(config('services.facebook.page_id'))
++            && filled(config('services.facebook.page_token'));
++    }
++
++    /**
++     * Publie l'actualité sur la Page Facebook configurée.
++     * Retourne l'URL du post créé.
++     *
++     * @throws RuntimeException si l'API Facebook renvoie une erreur.
++     */
++    public function publier(Actualite $actualite): string
++    {
++        if (!$this->isConfigured()) {
++            throw new RuntimeException(
++                "Aucune Page Facebook n'est configurée (FACEBOOK_PAGE_ID / FACEBOOK_PAGE_ACCESS_TOKEN)."
++            );
++        }
++
++        $pageId = config('services.facebook.page_id');
++        $token = config('services.facebook.page_token');
++        $message = $this->buildMessage($actualite);
++
++        // Avec une image : /photos publie la photo + légende (rendu le plus engageant
++        // dans le fil Facebook). Sans image : /feed publie un lien simple avec aperçu.
++        if ($actualite->image_url) {
++            $response = Http::asForm()->post("https://graph.facebook.com/v21.0/{$pageId}/photos", [
++                'url' => $actualite->image_url,
++                'caption' => $message,
++                'access_token' => $token,
++            ]);
++        } else {
++            $response = Http::asForm()->post("https://graph.facebook.com/v21.0/{$pageId}/feed", [
++                'message' => $message,
++                'link' => $actualite->lien_public,
++                'access_token' => $token,
++            ]);
++        }
++
++        if ($response->failed()) {
++            $erreur = $response->json('error.message') ?? 'Erreur inconnue de l\'API Facebook';
++            throw new RuntimeException($erreur);
++        }
++
++        // /photos renvoie post_id ("{page-id}_{post-id}"), /feed renvoie id directement.
++        $postId = $response->json('post_id') ?? $response->json('id');
++        $numericPostId = str_contains($postId, '_') ? explode('_', $postId)[1] : $postId;
++
++        return "https://www.facebook.com/{$pageId}/posts/{$numericPostId}";
++    }
++
++    private function buildMessage(Actualite $actualite): string
++    {
++        $texte = trim($actualite->titre . "\n\n" . $actualite->description);
++        return $texte . "\n\n" . $actualite->lien_public;
++    }
++}
+diff --git a/config/services.php b/config/services.php
+index d8dd0f6..7a03221 100644
+--- a/config/services.php
++++ b/config/services.php
+@@ -46,4 +46,15 @@
+         'callback_url' => env('FEDAPAY_CALLBACK_URL', env('FRONTEND_URL', 'http://localhost:5173') . '/paiement/retour'),
+     ],
+ 
++    'facebook' => [
++        // ID de la Page AJDCB (visible dans Paramètres de la Page > À propos,
++        // ou via https://graph.facebook.com/{nom-de-la-page}?fields=id).
++        'page_id' => env('FACEBOOK_PAGE_ID'),
++        // Token d'accès de PAGE longue durée (pas un token utilisateur) généré
++        // via Meta for Developers avec le scope pages_manage_posts. Sans ces
++        // deux valeurs, le bouton "Publier sur Facebook" reste désactivé côté
++        // admin et seul le lien de partage manuel est proposé.
++        'page_token' => env('FACEBOOK_PAGE_ACCESS_TOKEN'),
++    ],
++
+ ];
+diff --git a/database/migrations/2026_08_31_000000_add_facebook_post_url_to_actualites.php b/database/migrations/2026_08_31_000000_add_facebook_post_url_to_actualites.php
+new file mode 100644
+index 0000000..9e33813
+--- /dev/null
++++ b/database/migrations/2026_08_31_000000_add_facebook_post_url_to_actualites.php
+@@ -0,0 +1,24 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up()
++    {
++        Schema::table('actualites', function (Blueprint $table) {
++            // Lien du post une fois publié sur la Page Facebook — sert aussi de
++            // marqueur "déjà partagé" pour éviter les doublons depuis l'admin.
++            $table->string('facebook_post_url')->nullable()->after('statut');
++        });
++    }
++
++    public function down()
++    {
++        Schema::table('actualites', function (Blueprint $table) {
++            $table->dropColumn('facebook_post_url');
++        });
++    }
++};
