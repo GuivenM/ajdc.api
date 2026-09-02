@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Message;
+use App\Models\Partenaire;
 use App\Mail\ConfirmationMessage;
 use App\Mail\ReponseMessage;
 use App\Mail\NotificationNouveauMessage;
@@ -71,7 +72,13 @@ class MessageController extends Controller
                 'email' => 'required|email|max:255',
                 'telephone' => 'required|string|max:20',
                 'objet' => 'required|in:question,partenariat,adhesion,urgence,autre',
-                'message' => 'required|string'
+                'message' => 'required|string',
+                'organisation' => 'required_if:objet,partenariat|nullable|string|max:255',
+                'type_organisation' => 'nullable|in:institution,ong,entreprise,media,universite,association',
+                'secteur_activite' => 'nullable|string|max:255',
+                'pays' => 'nullable|string|max:255',
+                'ville' => 'nullable|string|max:255',
+                'site_web' => 'nullable|string|max:255',
             ]);
 
             if ($validator->fails()) {
@@ -233,6 +240,63 @@ class MessageController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la suppression du message',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Créer la fiche Partenaire à partir des infos d'organisation fournies
+     * dans le message (visible uniquement quand objet = 'partenariat').
+     * Un clic, statut 'inactif' par défaut — à activer une fois le
+     * partenariat confirmé. Idempotent : un message déjà converti renvoie
+     * simplement la fiche existante plutôt que d'en créer une seconde.
+     */
+    public function creerPartenaire($id)
+    {
+        try {
+            $message = Message::findOrFail($id);
+
+            if ($message->partenaire_id) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Ce message a déjà été converti en partenaire',
+                    'data' => $message->partenaire()->first()
+                ], 200);
+            }
+
+            if (!$message->organisation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Ce message ne contient pas d'informations d'organisation à convertir"
+                ], 422);
+            }
+
+            $partenaire = Partenaire::create([
+                'nom' => $message->organisation,
+                'type' => $message->type_organisation,
+                'secteur_activite' => $message->secteur_activite,
+                'pays' => $message->pays,
+                'ville' => $message->ville,
+                'site_web' => $message->site_web,
+                'email' => $message->email,
+                'telephone' => $message->telephone,
+                'description' => $message->message,
+                'statut' => 'inactif',
+            ]);
+
+            $message->update(['partenaire_id' => $partenaire->id]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Partenaire créé (statut inactif, à activer depuis la page Partenaires)',
+                'data' => $partenaire
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création du partenaire',
                 'error' => $e->getMessage()
             ], 500);
         }

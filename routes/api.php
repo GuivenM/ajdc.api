@@ -122,6 +122,8 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
             ->middleware('role:super_admin,admin');
         Route::post('/{id}/repondre', [MessageController::class, 'repondre'])
             ->middleware('role:super_admin,admin');
+        Route::post('/{id}/creer-partenaire', [MessageController::class, 'creerPartenaire'])
+            ->middleware('role:super_admin,admin');
         Route::delete('/{id}', [MessageController::class, 'destroy'])
             ->middleware('role:super_admin');
     });

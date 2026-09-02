@@ -18,11 +18,18 @@ class Message extends Model
         'telephone',
         'objet',
         'message',
+        'organisation',
+        'type_organisation',
+        'secteur_activite',
+        'pays',
+        'ville',
+        'site_web',
         'reponse',
         'date_reponse',
         'statut',
         'lu_le',
-        'traite_par'
+        'traite_par',
+        'partenaire_id'
     ];
 
     protected $casts = [
@@ -38,6 +45,11 @@ class Message extends Model
     public function traitePar()
     {
         return $this->belongsTo(User::class, 'traite_par');
+    }
+
+    public function partenaire()
+    {
+        return $this->belongsTo(Partenaire::class);
     }
 
     /**
