@@ -19,15 +19,28 @@ class GuideController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = GuideSection::with(['sousSections.documents']);
+            $onlyPublished = !$request->boolean('all');
+
+            $query = GuideSection::with(['sousSections' => function ($q) use ($onlyPublished) {
+                if ($onlyPublished) {
+                    $q->publie();
+                }
+                $q->with(['documents' => function ($q2) use ($onlyPublished) {
+                    if ($onlyPublished) {
+                        $q2->publie();
+                    }
+                }]);
+            }]);
 
             if ($request->has('categorie')) {
                 $query->byCategorie($request->categorie);
             }
 
-            if (!$request->boolean('all')) {
-                // Par défaut, uniquement le contenu publié (les routes admin
-                // protégées peuvent passer ?all=1 pour voir les brouillons).
+            if ($onlyPublished) {
+                // Par défaut, uniquement le contenu publié — la cascade
+                // ci-dessus s'applique aussi aux sous-sections/documents pour
+                // qu'aucun brouillon ne fuite côté site public. Les routes
+                // admin protégées peuvent passer ?all=1 pour tout voir.
                 $query->publie();
             }
 
@@ -48,10 +61,21 @@ class GuideController extends Controller
     /**
      * Afficher une section avec ses sous-sections et documents
      */
-    public function showSection($id)
+    public function showSection(Request $request, $id)
     {
         try {
-            $section = GuideSection::with(['sousSections.documents'])->findOrFail($id);
+            $onlyPublished = !$request->boolean('all');
+
+            $section = GuideSection::with(['sousSections' => function ($q) use ($onlyPublished) {
+                if ($onlyPublished) {
+                    $q->publie();
+                }
+                $q->with(['documents' => function ($q2) use ($onlyPublished) {
+                    if ($onlyPublished) {
+                        $q2->publie();
+                    }
+                }]);
+            }])->findOrFail($id);
 
             return response()->json([
                 'success' => true,
