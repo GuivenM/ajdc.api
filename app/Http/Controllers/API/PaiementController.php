@@ -33,8 +33,8 @@ class PaiementController extends Controller
             'membre_id' => 'nullable|exists:membres,id',
             'mois' => 'required|array|min:1|max:12',
             'mois.*' => 'regex:/^\d{4}-\d{2}$/',
-            'nom_payeur' => 'required_without:membre_id|string|max:255',
-            'telephone_payeur' => 'required|string|max:30',
+            'nom_payeur' => 'nullable|string|max:255',
+            'telephone_payeur' => 'nullable|string|max:30',
             'email_payeur' => 'nullable|email|max:255',
         ]);
 
@@ -43,6 +43,14 @@ class PaiementController extends Controller
         }
 
         $data = $validator->validated();
+        $membre = !empty($data['membre_id']) ? \App\Models\Membre::find($data['membre_id']) : null;
+        // Un membre identifié (lien ou compte connecté) n'a rien à ressaisir :
+        // on complète avec sa fiche, et pour le reste FedaPay demande le
+        // numéro directement sur sa page de paiement (Mobile Money).
+        $nomPayeur = $data['nom_payeur'] ?? $membre?->nom_complet;
+        $telephonePayeur = $data['telephone_payeur'] ?? $membre?->whatsapp;
+        $emailPayeur = $data['email_payeur'] ?? $membre?->email;
+
         $moisListe = array_values(array_unique($data['mois']));
         $montant = CotisationController::MONTANT_DEFAUT * count($moisListe);
 
@@ -51,9 +59,9 @@ class PaiementController extends Controller
             'membre_id' => $data['membre_id'] ?? null,
             'mois' => $moisListe[0],
             'mois_liste' => $moisListe,
-            'nom_payeur' => $data['nom_payeur'] ?? null,
-            'telephone_payeur' => $data['telephone_payeur'],
-            'email_payeur' => $data['email_payeur'] ?? null,
+            'nom_payeur' => $nomPayeur,
+            'telephone_payeur' => $telephonePayeur,
+            'email_payeur' => $emailPayeur,
             'montant' => $montant,
             'devise' => 'XOF',
             'statut' => 'en_attente',
@@ -63,14 +71,7 @@ class PaiementController extends Controller
             ? 'Cotisation AJDCB - ' . count($moisListe) . ' mois (' . implode(', ', $moisListe) . ')'
             : "Cotisation AJDCB - {$moisListe[0]}";
 
-        return $this->demarrerTransaction(
-            $fedapay,
-            $paiement,
-            $description,
-            $data['nom_payeur'] ?? null,
-            $data['telephone_payeur'],
-            $data['email_payeur'] ?? null
-        );
+        return $this->demarrerTransaction($fedapay, $paiement, $description, $nomPayeur, $telephonePayeur, $emailPayeur);
     }
 
     /**
@@ -98,8 +99,8 @@ class PaiementController extends Controller
 
         $validator = Validator::make($request->all(), [
             'membre_id' => 'nullable|exists:membres,id',
-            'nom_payeur' => 'required|string|max:255',
-            'telephone_payeur' => 'required|string|max:30',
+            'nom_payeur' => 'nullable|string|max:255',
+            'telephone_payeur' => 'nullable|string|max:30',
             'email_payeur' => 'nullable|email|max:255',
         ]);
 
@@ -108,27 +109,24 @@ class PaiementController extends Controller
         }
 
         $data = $validator->validated();
+        $membre = !empty($data['membre_id']) ? \App\Models\Membre::find($data['membre_id']) : null;
+        $nomPayeur = $data['nom_payeur'] ?? $membre?->nom_complet;
+        $telephonePayeur = $data['telephone_payeur'] ?? $membre?->whatsapp;
+        $emailPayeur = $data['email_payeur'] ?? $membre?->email;
 
         $paiement = Paiement::create([
             'type' => 'evenement',
             'membre_id' => $data['membre_id'] ?? null,
             'evenement_id' => $evenement->id,
-            'nom_payeur' => $data['nom_payeur'],
-            'telephone_payeur' => $data['telephone_payeur'],
-            'email_payeur' => $data['email_payeur'] ?? null,
+            'nom_payeur' => $nomPayeur,
+            'telephone_payeur' => $telephonePayeur,
+            'email_payeur' => $emailPayeur,
             'montant' => $evenement->prix,
             'devise' => $evenement->devise ?: 'XOF',
             'statut' => 'en_attente',
         ]);
 
-        return $this->demarrerTransaction(
-            $fedapay,
-            $paiement,
-            "Billet - {$evenement->titre}",
-            $data['nom_payeur'],
-            $data['telephone_payeur'],
-            $data['email_payeur'] ?? null
-        );
+        return $this->demarrerTransaction($fedapay, $paiement, "Billet - {$evenement->titre}", $nomPayeur, $telephonePayeur, $emailPayeur);
     }
 
     private function demarrerTransaction(
@@ -136,7 +134,7 @@ class PaiementController extends Controller
         Paiement $paiement,
         string $description,
         ?string $nomPayeur,
-        string $telephonePayeur,
+        ?string $telephonePayeur,
         ?string $emailPayeur
     ) {
         try {
@@ -146,10 +144,10 @@ class PaiementController extends Controller
                 'firstname' => $prenom,
                 'lastname' => $nom,
                 'email' => $emailPayeur,
-                'phone_number' => [
+                'phone_number' => $telephonePayeur ? [
                     'number' => $telephonePayeur,
                     'country' => 'bj',
-                ],
+                ] : null,
             ]);
 
             $resultat = $fedapay->initierTransaction((float) $paiement->montant, $description, $customer);
