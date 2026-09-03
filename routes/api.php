@@ -14,6 +14,8 @@ use App\Http\Controllers\API\EvenementController;
 use App\Http\Controllers\API\GuideController;
 use App\Http\Controllers\API\PartenaireController;
 use App\Http\Controllers\API\PaiementController;
+use App\Http\Controllers\API\NewsletterController;
+use App\Http\Controllers\API\StatistiquesPubliquesController;
 use App\Http\Controllers\ImageController;
 
 // ==================== ROUTES PUBLIQUES ====================
@@ -82,6 +84,12 @@ Route::prefix('v1')->group(function () {
     Route::get('/partenaires', [PartenaireController::class, 'index']);
     Route::get('/partenaires/{id}', [PartenaireController::class, 'show']);
 
+    // Newsletter - Inscription publique (footer et autres pages)
+    Route::post('/newsletter', [NewsletterController::class, 'store']);
+
+    // Statistiques publiques - Chiffres clés réels pour la page d'accueil
+    Route::get('/statistiques-publiques', [StatistiquesPubliquesController::class, 'index']);
+
     // Paiements FedaPay - Routes publiques (un visiteur ou un membre paie sans être connecté)
     Route::post('/paiements/cotisation', [PaiementController::class, 'initierCotisation']);
     Route::post('/paiements/evenements/{id}', [PaiementController::class, 'initierEvenement']);
@@ -121,8 +129,6 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::put('/{id}', [MessageController::class, 'update'])
             ->middleware('role:super_admin,admin');
         Route::post('/{id}/repondre', [MessageController::class, 'repondre'])
-            ->middleware('role:super_admin,admin');
-        Route::post('/{id}/creer-partenaire', [MessageController::class, 'creerPartenaire'])
             ->middleware('role:super_admin,admin');
         Route::delete('/{id}', [MessageController::class, 'destroy'])
             ->middleware('role:super_admin');
@@ -233,6 +239,16 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
             ->middleware('role:super_admin,admin');
         Route::delete('/documents/{id}', [GuideController::class, 'destroyDocument'])
             ->middleware('role:super_admin');
+    });
+
+    // ========== NEWSLETTER ==========
+    // Inscription : déjà publique. Consultation de la liste et désinscription :
+    // admin/super_admin uniquement.
+    Route::prefix('newsletter')->group(function () {
+        Route::get('/', [NewsletterController::class, 'index'])
+            ->middleware('role:super_admin,admin');
+        Route::delete('/{id}', [NewsletterController::class, 'destroy'])
+            ->middleware('role:super_admin,admin');
     });
 
     // ========== PARTENAIRES ==========
