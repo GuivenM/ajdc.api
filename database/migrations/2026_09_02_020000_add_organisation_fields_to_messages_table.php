@@ -15,16 +15,29 @@ return new class extends Migration
     public function up()
     {
         Schema::table('messages', function (Blueprint $table) {
-            $table->string('organisation')->nullable()->after('telephone');
-            $table->enum('type_organisation', ['institution', 'ong', 'entreprise', 'media', 'universite', 'association'])
-                ->nullable()->after('organisation');
-            $table->string('secteur_activite')->nullable()->after('type_organisation');
-            $table->string('pays')->nullable()->after('secteur_activite');
-            $table->string('ville')->nullable()->after('pays');
-            $table->string('site_web')->nullable()->after('ville');
-
-            $table->foreignId('partenaire_id')->nullable()->after('traite_par')
-                ->constrained('partenaires')->nullOnDelete();
+            if (!Schema::hasColumn('messages', 'organisation')) {
+                $table->string('organisation')->nullable()->after('telephone');
+            }
+            if (!Schema::hasColumn('messages', 'type_organisation')) {
+                $table->enum('type_organisation', ['institution', 'ong', 'entreprise', 'media', 'universite', 'association'])
+                    ->nullable()->after('organisation');
+            }
+            if (!Schema::hasColumn('messages', 'secteur_activite')) {
+                $table->string('secteur_activite')->nullable()->after('type_organisation');
+            }
+            if (!Schema::hasColumn('messages', 'pays')) {
+                $table->string('pays')->nullable()->after('secteur_activite');
+            }
+            if (!Schema::hasColumn('messages', 'ville')) {
+                $table->string('ville')->nullable()->after('pays');
+            }
+            if (!Schema::hasColumn('messages', 'site_web')) {
+                $table->string('site_web')->nullable()->after('ville');
+            }
+            if (!Schema::hasColumn('messages', 'partenaire_id')) {
+                $table->foreignId('partenaire_id')->nullable()->after('traite_par')
+                    ->constrained('partenaires')->nullOnDelete();
+            }
         });
     }
 

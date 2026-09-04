@@ -177,12 +177,19 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
     // Données financières internes : lecture réservée aux comptes admin (pas de route publique).
     // Marquer payé/impayé : admin/super_admin uniquement.
     Route::prefix('cotisations')->group(function () {
-        Route::get('/', [CotisationController::class, 'index']);
-        Route::get('/statistiques', [CotisationController::class, 'statistiques']);
-        Route::get('/export', [CotisationController::class, 'export']);
-        Route::get('/membre/{id}', [CotisationController::class, 'historiqueMembre']);
+        // Lecture : restreint aux rôles ayant besoin de voir les données financières
+        // (jusqu'ici ouvert à tout compte admin authentifié, y compris moderateur —
+        // corrigé ici en même temps que l'ajout du rôle tresorier).
+        Route::get('/', [CotisationController::class, 'index'])
+            ->middleware('role:super_admin,admin,tresorier');
+        Route::get('/statistiques', [CotisationController::class, 'statistiques'])
+            ->middleware('role:super_admin,admin,tresorier');
+        Route::get('/export', [CotisationController::class, 'export'])
+            ->middleware('role:super_admin,admin,tresorier');
+        Route::get('/membre/{id}', [CotisationController::class, 'historiqueMembre'])
+            ->middleware('role:super_admin,admin,tresorier');
         Route::post('/marquer', [CotisationController::class, 'marquer'])
-            ->middleware('role:super_admin,admin');
+            ->middleware('role:super_admin,admin,tresorier');
     });
 
     // ========== MEMBRES ==========

@@ -64,7 +64,8 @@ class User extends Authenticatable
         $roles = [
             'super_admin' => 'Super Administrateur',
             'admin' => 'Administrateur',
-            'moderateur' => 'Modérateur'
+            'moderateur' => 'Modérateur',
+            'tresorier' => 'Trésorier',
         ];
 
         return $roles[$this->role] ?? $this->role;
