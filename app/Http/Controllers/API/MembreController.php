@@ -4,9 +4,14 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Membre;
+use App\Models\User;
+use App\Mail\ActivationCompteAdmin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use App\Services\ImageCompressionService;
 
 class MembreController extends Controller
@@ -98,7 +103,8 @@ class MembreController extends Controller
     public function tous()
     {
         try {
-            $membres = Membre::orderByRaw('CASE
+            $membres = Membre::with('compteAdmin')
+                ->orderByRaw('CASE
                     WHEN poste IS NOT NULL THEN 1
                     WHEN commission IS NOT NULL THEN 2
                     ELSE 3
@@ -370,5 +376,93 @@ class MembreController extends Controller
             'success' => true,
             'data' => $postes
         ]);
+    }
+
+    /**
+     * Crée un accès admin pour un membre du bureau, à partir de son poste
+     * (voir Membre::POSTES_ADMIN_ELIGIBLES pour la correspondance poste -> rôle).
+     * Envoie un email d'activation ; le mot de passe est choisi par
+     * l'intéressé via ce lien, jamais généré/transmis ici.
+     */
+    public function creerAccesAdmin($id)
+    {
+        try {
+            $membre = Membre::with('compteAdmin')->find($id);
+
+            if (!$membre) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Membre introuvable'
+                ], 404);
+            }
+
+            if (!$membre->peut_avoir_acces_admin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce poste ne permet pas de créer un accès administrateur'
+                ], 422);
+            }
+
+            if ($membre->compteAdmin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce membre a déjà un accès administrateur'
+                ], 422);
+            }
+
+            if (!$membre->email) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce membre n\'a pas d\'adresse email renseignée'
+                ], 422);
+            }
+
+            if (User::where('email', $membre->email)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Un compte admin existe déjà avec cet email'
+                ], 422);
+            }
+
+            $role = Membre::POSTES_ADMIN_ELIGIBLES[$membre->poste];
+
+            $user = User::create([
+                'membre_id' => $membre->id,
+                'nom' => $membre->nom,
+                'prenom' => $membre->prenom,
+                'email' => $membre->email,
+                'telephone' => $membre->whatsapp,
+                'role' => $role,
+                // Mot de passe temporaire inutilisable : personne ne le connaît,
+                // le compte n'est utilisable qu'après activation via le lien reçu par email.
+                'password' => Hash::make(Str::random(40)),
+                'est_actif' => true,
+                'activation_token' => Str::random(64),
+                'activation_token_expire_at' => now()->addDays(7),
+            ]);
+
+            try {
+                Mail::to($user->email)->send(new ActivationCompteAdmin($user));
+            } catch (\Exception $e) {
+                \Log::error('Erreur envoi email activation admin: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Accès créé, email d\'activation envoyé à ' . $user->email,
+                'data' => [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'role_label' => $user->role_label,
+                ],
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création de l\'accès administrateur',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

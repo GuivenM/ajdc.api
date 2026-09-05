@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -99,6 +100,83 @@ public function login(Request $request)
         ], 500);
     }
 }
+
+    /**
+     * Activation d'un accès admin créé depuis une fiche membre
+     * (voir MembreController::creerAccesAdmin) : l'intéressé choisit son
+     * mot de passe via le lien reçu par email, puis est connecté directement.
+     */
+    public function activerCompteAdmin(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'token' => 'required|string',
+                'password' => 'required|string|min:6|confirmed',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = User::where('activation_token', $request->token)->first();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Lien d\'activation invalide'
+                ], 404);
+            }
+
+            if (!$user->activation_token_expire_at || $user->activation_token_expire_at->isPast()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce lien d\'activation a expiré. Contactez un super administrateur pour en recevoir un nouveau.'
+                ], 410);
+            }
+
+            $user->update([
+                'password' => Hash::make($request->password),
+                'email_verified_at' => now(),
+                'activation_token' => null,
+                'activation_token_expire_at' => null,
+                'derniere_connexion' => now(),
+            ]);
+
+            $token = $user->createToken('auth_token', ['*'], now()->addDay())->plainTextToken;
+            $permissions = $this->getPermissionsByRole($user->role);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Accès activé avec succès',
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'nom' => $user->nom,
+                        'prenom' => $user->prenom,
+                        'nom_complet' => $user->nom_complet,
+                        'email' => $user->email,
+                        'role' => $user->role,
+                        'role_label' => $user->role_label,
+                        'photo' => $user->photo_url,
+                        'initiales' => $user->initiales,
+                        'telephone' => $user->telephone,
+                        'derniere_connexion' => $user->derniere_connexion?->format('d/m/Y H:i')
+                    ],
+                    'token' => $token,
+                    'permissions' => $permissions
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'activation du compte',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 
     /**
      * Déconnexion
@@ -302,6 +380,10 @@ public function login(Request $request)
                 'evenements' => ['view'],
                 'projets' => ['view'],
                 'documents' => ['view']
+            ],
+            'tresorier' => [
+                'dashboard' => ['view'],
+                'cotisations' => ['view', 'manage']
             ]
         ];
 

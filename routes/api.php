@@ -33,6 +33,7 @@ Route::get('/test', function() {
 // Auth (espace admin)
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/activer-compte-admin', [AuthController::class, 'activerCompteAdmin']);
 });
 
 // Auth (espace membre) — distinct de l'espace admin ci-dessus
@@ -205,6 +206,10 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::put('/{id}', [MembreController::class, 'update'])
             ->middleware('role:super_admin,admin');
         Route::delete('/{id}', [MembreController::class, 'destroy'])
+            ->middleware('role:super_admin');
+        // Créer un accès admin depuis une fiche membre du bureau (voir
+        // Membre::POSTES_ADMIN_ELIGIBLES) — création de comptes, réservé au super_admin.
+        Route::post('/{id}/creer-acces-admin', [MembreController::class, 'creerAccesAdmin'])
             ->middleware('role:super_admin');
     });
 
