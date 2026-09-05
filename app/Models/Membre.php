@@ -50,7 +50,24 @@ class Membre extends Authenticatable
         'activation_token_expire_at' => 'datetime',
     ];
 
-    protected $appends = ['nom_complet', 'photo_url', 'role'];
+    protected $appends = ['nom_complet', 'photo_url', 'role', 'peut_avoir_acces_admin', 'a_compte_admin'];
+
+    /**
+     * Postes du bureau pouvant donner lieu à un accès admin, et rôle admin
+     * associé (voir MembreController::creerAccesAdmin). Les autres postes
+     * (Chargé des Projets, Chargé des Relations Extérieures, Conseiller) et
+     * les simples membres de commission n'ont pas d'accès par défaut — un
+     * compte peut toujours être créé à la main si besoin.
+     */
+    public const POSTES_ADMIN_ELIGIBLES = [
+        'Président' => 'super_admin',
+        'Vice-Président' => 'super_admin',
+        'Secrétaire Général' => 'admin',
+        'Secrétaire Général Adjoint' => 'admin',
+        'Trésorier Général' => 'tresorier',
+        'Trésorier Général Adjoint' => 'tresorier',
+        'Chargé de Communication' => 'moderateur',
+    ];
 
     /**
      * Accesseurs
@@ -76,12 +93,29 @@ class Membre extends Authenticatable
         return 'Membre actif';
     }
 
+    public function getPeutAvoirAccesAdminAttribute()
+    {
+        return $this->poste && array_key_exists($this->poste, self::POSTES_ADMIN_ELIGIBLES);
+    }
+
+    public function getACompteAdminAttribute()
+    {
+        return $this->relationLoaded('compteAdmin')
+            ? $this->compteAdmin !== null
+            : $this->compteAdmin()->exists();
+    }
+
     /**
      * Relations
      */
     public function adhesion()
     {
         return $this->belongsTo(Adhesion::class);
+    }
+
+    public function compteAdmin()
+    {
+        return $this->hasOne(User::class);
     }
 
     public function cotisations()

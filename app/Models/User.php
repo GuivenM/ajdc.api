@@ -23,17 +23,22 @@ class User extends Authenticatable
         'telephone',
         'est_actif',
         'email_verified_at',
-        'derniere_connexion'
+        'derniere_connexion',
+        'membre_id',
+        'activation_token',
+        'activation_token_expire_at',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'activation_token',
     ];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
         'derniere_connexion' => 'datetime',
+        'activation_token_expire_at' => 'datetime',
         'est_actif' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
@@ -87,5 +92,13 @@ class User extends Authenticatable
     public function isModerateur()
     {
         return in_array($this->role, ['super_admin', 'admin', 'moderateur']);
+    }
+
+    /**
+     * Relations
+     */
+    public function membre()
+    {
+        return $this->belongsTo(Membre::class);
     }
 }
