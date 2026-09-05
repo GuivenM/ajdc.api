@@ -16,6 +16,7 @@ use App\Http\Controllers\API\PartenaireController;
 use App\Http\Controllers\API\PaiementController;
 use App\Http\Controllers\API\NewsletterController;
 use App\Http\Controllers\API\StatistiquesPubliquesController;
+use App\Http\Controllers\API\UtilisateurController;
 use App\Http\Controllers\ImageController;
 
 // ==================== ROUTES PUBLIQUES ====================
@@ -211,6 +212,17 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         // Membre::POSTES_ADMIN_ELIGIBLES) — création de comptes, réservé au super_admin.
         Route::post('/{id}/creer-acces-admin', [MembreController::class, 'creerAccesAdmin'])
             ->middleware('role:super_admin');
+    });
+
+    // ========== UTILISATEURS (comptes admin) ==========
+    // Gestion des comptes déjà créés (via creer-acces-admin ou à la main) :
+    // liste, changement de rôle/statut, suppression, renvoi d'activation.
+    // Réservé au super_admin — ce sont des identifiants de connexion.
+    Route::prefix('utilisateurs')->middleware('role:super_admin')->group(function () {
+        Route::get('/', [UtilisateurController::class, 'index']);
+        Route::put('/{id}', [UtilisateurController::class, 'update']);
+        Route::delete('/{id}', [UtilisateurController::class, 'destroy']);
+        Route::post('/{id}/renvoyer-activation', [UtilisateurController::class, 'renvoyerActivation']);
     });
 
     // ========== ÉVÉNEMENTS ==========

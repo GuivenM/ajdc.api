@@ -44,7 +44,7 @@ class User extends Authenticatable
         'updated_at' => 'datetime'
     ];
 
-    protected $appends = ['nom_complet', 'photo_url', 'initiales', 'role_label'];
+    protected $appends = ['nom_complet', 'photo_url', 'initiales', 'role_label', 'en_attente_activation'];
 
     /**
      * Accesseurs - NE LES DECLAREZ QU'UNE SEULE FOIS
@@ -74,6 +74,11 @@ class User extends Authenticatable
         ];
 
         return $roles[$this->role] ?? $this->role;
+    }
+
+    public function getEnAttenteActivationAttribute()
+    {
+        return !is_null($this->activation_token);
     }
 
     /**
