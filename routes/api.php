@@ -194,6 +194,8 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
             ->middleware('role:super_admin,admin,tresorier');
         Route::post('/marquer', [CotisationController::class, 'marquer'])
             ->middleware('role:super_admin,admin,tresorier');
+        Route::post('/verifier-retards', [CotisationController::class, 'verifierRetards'])
+            ->middleware('role:super_admin,tresorier');
     });
 
     // ========== MEMBRES ==========
