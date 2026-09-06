@@ -268,6 +268,12 @@ class AdhesionController extends Controller
                 'traite_par' => auth()->id(),
             ]);
 
+            \App\Models\JournalActivite::enregistrer(
+                'adhesion.traiter',
+                "Demande d'adhésion de {$adhesion->prenom} {$adhesion->nom} : " . ($request->statut === 'approuvee' ? 'approuvée' : 'rejetée'),
+                $adhesion
+            );
+
             if ($request->statut === 'approuvee') {
                 // Le membre existe dès l'approbation, mais reste "en_attente_paiement"
                 // tant que la cotisation initiale (1000F, cf. PaiementController) n'est
@@ -425,7 +431,13 @@ class AdhesionController extends Controller
     {
         try {
             $adhesion = Adhesion::findOrFail($id);
+            $nom = "{$adhesion->prenom} {$adhesion->nom}";
             $adhesion->delete();
+
+            \App\Models\JournalActivite::enregistrer(
+                'adhesion.supprimer',
+                "Demande d'adhésion supprimée : {$nom}"
+            );
 
             return response()->json([
                 'success' => true,

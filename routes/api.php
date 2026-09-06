@@ -17,6 +17,7 @@ use App\Http\Controllers\API\PaiementController;
 use App\Http\Controllers\API\NewsletterController;
 use App\Http\Controllers\API\StatistiquesPubliquesController;
 use App\Http\Controllers\API\UtilisateurController;
+use App\Http\Controllers\API\JournalActiviteController;
 use App\Http\Controllers\ImageController;
 
 // ==================== ROUTES PUBLIQUES ====================
@@ -228,6 +229,12 @@ Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
         Route::delete('/{id}', [UtilisateurController::class, 'destroy']);
         Route::post('/{id}/renvoyer-activation', [UtilisateurController::class, 'renvoyerActivation']);
     });
+
+    // ========== JOURNAL D'ACTIVITÉ ==========
+    // Historique des actions sensibles (cotisations, membres, comptes admin,
+    // adhésions). Réservé au super_admin.
+    Route::get('/journal-activite', [JournalActiviteController::class, 'index'])
+        ->middleware('role:super_admin');
 
     // ========== ÉVÉNEMENTS ==========
     // Lecture : déjà publique. Créer/modifier : admin/super_admin. Supprimer : super_admin uniquement.
