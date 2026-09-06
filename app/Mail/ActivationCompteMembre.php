@@ -15,10 +15,12 @@ class ActivationCompteMembre extends Mailable
 
     public Membre $membre;
     public string $lienActivation;
+    public bool $reinitialisation;
 
-    public function __construct(Membre $membre)
+    public function __construct(Membre $membre, bool $reinitialisation = false)
     {
         $this->membre = $membre;
+        $this->reinitialisation = $reinitialisation;
         $this->lienActivation = rtrim(config('app.frontend_url'), '/')
             . '/activer-compte?token=' . $membre->activation_token;
     }
@@ -26,7 +28,9 @@ class ActivationCompteMembre extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Activez votre espace membre AJDCB',
+            subject: $this->reinitialisation
+                ? 'Réinitialisation de votre mot de passe AJDCB'
+                : 'Activez votre espace membre AJDCB',
         );
     }
 

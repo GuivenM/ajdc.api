@@ -4,9 +4,12 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Membre;
+use App\Mail\ActivationCompteMembre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class MembreAuthController extends Controller
 {
@@ -148,6 +151,52 @@ class MembreAuthController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Mot de passe oublié (espace membre) : envoie un lien de réinitialisation
+     * si l'email correspond à un compte membre actif et déjà activé (sinon
+     * c'est le lien d'activation initial qu'il faut utiliser). Réponse
+     * volontairement identique dans tous les cas pour ne pas révéler quels
+     * emails ont un compte.
+     */
+    public function motDePasseOublie(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $reponse = [
+            'success' => true,
+            'message' => "Si un compte existe avec cet email, un lien de réinitialisation vient d'être envoyé.",
+        ];
+
+        try {
+            $membre = Membre::where('email', $request->email)
+                ->where('statut', '!=', 'inactif')
+                ->whereNotNull('password')
+                ->first();
+
+            if ($membre) {
+                $membre->update([
+                    'activation_token' => Str::random(64),
+                    'activation_token_expire_at' => now()->addDays(7),
+                ]);
+
+                Mail::to($membre->email)->send(new ActivationCompteMembre($membre, reinitialisation: true));
+            }
+        } catch (\Exception $e) {
+            \Log::error('Erreur envoi email réinitialisation membre: ' . $e->getMessage());
+        }
+
+        return response()->json($reponse);
     }
 
     public function logout(Request $request)
