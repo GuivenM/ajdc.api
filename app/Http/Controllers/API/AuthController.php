@@ -389,4 +389,47 @@ public function login(Request $request)
 
         return $permissions[$role] ?? [];
     }
+
+    /**
+     * Mot de passe oublié (espace admin) : envoie un lien de réinitialisation
+     * si l'email correspond à un compte actif. Réponse volontairement
+     * identique dans tous les cas (email inconnu, compte désactivé, ou
+     * envoi réussi) pour ne pas révéler quels emails ont un compte.
+     */
+    public function motDePasseOublie(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $reponse = [
+            'success' => true,
+            'message' => "Si un compte existe avec cet email, un lien de réinitialisation vient d'être envoyé.",
+        ];
+
+        try {
+            $user = User::where('email', $request->email)->where('est_actif', true)->first();
+
+            if ($user) {
+                $user->update([
+                    'activation_token' => Str::random(64),
+                    'activation_token_expire_at' => now()->addDays(7),
+                ]);
+
+                \Illuminate\Support\Facades\Mail::to($user->email)
+                    ->send(new \App\Mail\ActivationCompteAdmin($user, reinitialisation: true));
+            }
+        } catch (\Exception $e) {
+            \Log::error('Erreur envoi email réinitialisation admin: ' . $e->getMessage());
+        }
+
+        return response()->json($reponse);
+    }
 }

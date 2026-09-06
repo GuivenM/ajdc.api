@@ -59,18 +59,30 @@
     <div class="content">
         <h2>Bonjour {{ $user->prenom }} {{ $user->nom }},</h2>
 
-        <p>
-            Un accès à l'espace d'administration du site de l'AJDCB vient de vous être créé, avec le rôle
-            <span class="role-badge">{{ $user->role_label }}</span>.
-        </p>
+        @if($reinitialisation)
+            <p>Vous avez demandé la réinitialisation du mot de passe de votre accès administrateur AJDCB.</p>
 
-        <p>Pour l'activer, définissez votre mot de passe en cliquant sur le bouton ci-dessous :</p>
+            <p>Pour choisir un nouveau mot de passe, cliquez sur le bouton ci-dessous :</p>
 
-        <p style="text-align: center;">
-            <a href="{{ $lienActivation }}" class="bouton">Activer mon accès administrateur</a>
-        </p>
+            <p style="text-align: center;">
+                <a href="{{ $lienActivation }}" class="bouton">Choisir un nouveau mot de passe</a>
+            </p>
 
-        <p>Ce lien est valable 7 jours. Si vous n'êtes pas à l'origine de cette demande, contactez immédiatement le Bureau Exécutif.</p>
+            <p>Ce lien est valable 7 jours. Si vous n'êtes pas à l'origine de cette demande, contactez immédiatement le Bureau Exécutif — votre mot de passe actuel reste inchangé tant que vous n'avez pas cliqué.</p>
+        @else
+            <p>
+                Un accès à l'espace d'administration du site de l'AJDCB vient de vous être créé, avec le rôle
+                <span class="role-badge">{{ $user->role_label }}</span>.
+            </p>
+
+            <p>Pour l'activer, définissez votre mot de passe en cliquant sur le bouton ci-dessous :</p>
+
+            <p style="text-align: center;">
+                <a href="{{ $lienActivation }}" class="bouton">Activer mon accès administrateur</a>
+            </p>
+
+            <p>Ce lien est valable 7 jours. Si vous n'êtes pas à l'origine de cette demande, contactez immédiatement le Bureau Exécutif.</p>
+        @endif
 
         <p>Solidaires,</p>
         <p><strong>Le Bureau Exécutif de l'AJDCB</strong></p>

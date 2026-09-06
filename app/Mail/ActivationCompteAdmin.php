@@ -15,10 +15,12 @@ class ActivationCompteAdmin extends Mailable
 
     public User $user;
     public string $lienActivation;
+    public bool $reinitialisation;
 
-    public function __construct(User $user)
+    public function __construct(User $user, bool $reinitialisation = false)
     {
         $this->user = $user;
+        $this->reinitialisation = $reinitialisation;
         $this->lienActivation = rtrim(config('app.frontend_url'), '/')
             . '/admin/activer-compte?token=' . $user->activation_token;
     }
@@ -26,7 +28,9 @@ class ActivationCompteAdmin extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Votre accès administrateur AJDCB',
+            subject: $this->reinitialisation
+                ? 'Réinitialisation de votre mot de passe AJDCB'
+                : 'Votre accès administrateur AJDCB',
         );
     }
 

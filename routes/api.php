@@ -35,12 +35,14 @@ Route::get('/test', function() {
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/activer-compte-admin', [AuthController::class, 'activerCompteAdmin']);
+    Route::post('/mot-de-passe-oublie', [AuthController::class, 'motDePasseOublie']);
 });
 
 // Auth (espace membre) — distinct de l'espace admin ci-dessus
 Route::prefix('v1/membre/auth')->group(function () {
     Route::post('/activer-compte', [MembreAuthController::class, 'activerCompte']);
     Route::post('/login', [MembreAuthController::class, 'login']);
+    Route::post('/mot-de-passe-oublie', [MembreAuthController::class, 'motDePasseOublie']);
 });
 
 // Messages - Routes publiques (création et consultation publique)

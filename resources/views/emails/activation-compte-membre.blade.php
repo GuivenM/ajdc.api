@@ -50,17 +50,29 @@
     <div class="content">
         <h2>Bonjour {{ $membre->prenom }} {{ $membre->nom }},</h2>
 
-        <p><strong>Félicitations, votre adhésion à l'AJDCB a été approuvée !</strong></p>
+        @if($reinitialisation)
+            <p>Vous avez demandé la réinitialisation du mot de passe de votre espace membre AJDCB.</p>
 
-        <p>Votre espace membre vous attend. Il vous permettra de suivre vos cotisations, de vous inscrire aux événements et de rester informé de la vie de l'association.</p>
+            <p>Pour choisir un nouveau mot de passe, cliquez sur le bouton ci-dessous :</p>
 
-        <p>Pour l'activer, définissez votre mot de passe en cliquant sur le bouton ci-dessous :</p>
+            <p style="text-align: center;">
+                <a href="{{ $lienActivation }}" class="bouton">Choisir un nouveau mot de passe</a>
+            </p>
 
-        <p style="text-align: center;">
-            <a href="{{ $lienActivation }}" class="bouton">Activer mon espace membre</a>
-        </p>
+            <p>Ce lien est valable 7 jours. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email — votre mot de passe actuel reste inchangé.</p>
+        @else
+            <p><strong>Félicitations, votre adhésion à l'AJDCB a été approuvée !</strong></p>
 
-        <p>Ce lien est valable 7 jours. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
+            <p>Votre espace membre vous attend. Il vous permettra de suivre vos cotisations, de vous inscrire aux événements et de rester informé de la vie de l'association.</p>
+
+            <p>Pour l'activer, définissez votre mot de passe en cliquant sur le bouton ci-dessous :</p>
+
+            <p style="text-align: center;">
+                <a href="{{ $lienActivation }}" class="bouton">Activer mon espace membre</a>
+            </p>
+
+            <p>Ce lien est valable 7 jours. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
+        @endif
 
         <p>Solidaires,</p>
         <p><strong>Le Bureau Exécutif de l'AJDCB</strong></p>
