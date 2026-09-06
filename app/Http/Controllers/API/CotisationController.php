@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cotisation;
 use App\Models\Membre;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
@@ -336,16 +337,10 @@ class CotisationController extends Controller
             });
 
             // Retard consécutif à partir du mois courant (Article 3 : radiation
-            // automatique après 3 mois consécutifs de non-paiement). Un mois
-            // "anterieure_adhesion" arrête le décompte, comme un mois payé.
-            $retardConsecutif = 0;
-            foreach ($historique as $entry) {
-                if ($entry['statut'] === 'impayee') {
-                    $retardConsecutif++;
-                } else {
-                    break;
-                }
-            }
+            // automatique après 3 mois consécutifs de non-paiement), voir
+            // Membre::retardCotisationConsecutif() — même logique que
+            // cotisations:verifier-retards, qui agit dessus automatiquement.
+            $retardConsecutif = $membre->retardCotisationConsecutif();
 
             return response()->json([
                 'success' => true,
@@ -361,6 +356,34 @@ class CotisationController extends Controller
                 'success' => false,
                 'message' => 'Membre non trouvé'
             ], 404);
+        }
+    }
+
+    /**
+     * Déclenchement manuel de la vérification des retards (rappels,
+     * avertissements, radiation automatique — voir
+     * cotisations:verifier-retards). Tourne aussi automatiquement chaque
+     * mois via le planificateur (routes/console.php) ; ce bouton sert à
+     * tester ou à forcer une vérification immédiate.
+     *
+     * POST /v1/cotisations/verifier-retards
+     */
+    public function verifierRetards()
+    {
+        try {
+            Artisan::call('cotisations:verifier-retards');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Vérification effectuée.',
+                'detail' => trim(Artisan::output()),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la vérification des retards',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 }
