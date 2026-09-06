@@ -43,6 +43,12 @@ class VerifierRetardsCotisations extends Command
                         . "(Règlement intérieur, Article 3), le " . now()->format('d/m/Y'),
                 ]);
 
+                \App\Models\JournalActivite::enregistrer(
+                    'membre.radiation_auto',
+                    "Radiation automatique : {$membre->nom_complet} ({$retard} mois consécutifs impayés)",
+                    $membre
+                );
+
                 $this->envoyerSansBloquer(fn () => Mail::to($membre->email)
                     ->send(new MembreRadieAutomatiquement($membre, $retard)));
 

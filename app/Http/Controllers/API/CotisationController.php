@@ -133,6 +133,13 @@ class CotisationController extends Controller
                 $data
             );
 
+            $membreLabel = optional(Membre::find($request->membre_id))->nom_complet ?? "#{$request->membre_id}";
+            \App\Models\JournalActivite::enregistrer(
+                'cotisation.marquer',
+                "Cotisation de {$membreLabel} pour {$request->mois} marquée " . ($request->statut === 'payee' ? 'payée' : 'impayée'),
+                $cotisation
+            );
+
             // Même règle que côté FedaPay (PaiementController) : un premier
             // paiement confirmé, manuel ou en ligne, active le membre.
             if ($request->statut === 'payee') {

@@ -82,7 +82,25 @@ class UtilisateurController extends Controller
                 ], 422);
             }
 
+            $ancienRole = $utilisateur->role;
+            $ancienStatut = $utilisateur->est_actif;
+
             $utilisateur->update($request->only(['role', 'est_actif']));
+
+            if ($request->has('role') && $request->role !== $ancienRole) {
+                \App\Models\JournalActivite::enregistrer(
+                    'utilisateur.modifier_role',
+                    "Rôle de {$utilisateur->nom_complet} changé : {$ancienRole} -> {$utilisateur->role}",
+                    $utilisateur
+                );
+            }
+            if ($request->has('est_actif') && $request->boolean('est_actif') !== $ancienStatut) {
+                \App\Models\JournalActivite::enregistrer(
+                    'utilisateur.changer_statut',
+                    "Compte {$utilisateur->nom_complet} " . ($utilisateur->est_actif ? 'réactivé' : 'désactivé'),
+                    $utilisateur
+                );
+            }
 
             return response()->json([
                 'success' => true,
@@ -120,6 +138,13 @@ class UtilisateurController extends Controller
             }
 
             $utilisateur->delete();
+
+            \App\Models\JournalActivite::enregistrer(
+                'utilisateur.supprimer',
+                "Compte admin supprimé : {$utilisateur->nom_complet} ({$utilisateur->email})",
+                null,
+                ['user_id' => $utilisateur->id]
+            );
 
             return response()->json([
                 'success' => true,

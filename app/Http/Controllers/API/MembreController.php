@@ -211,6 +211,12 @@ class MembreController extends Controller
 
             $membre = Membre::create($data);
 
+            \App\Models\JournalActivite::enregistrer(
+                'membre.ajouter',
+                "Membre ajouté : {$membre->nom_complet}",
+                $membre
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Membre ajouté avec succès',
@@ -289,6 +295,17 @@ class MembreController extends Controller
 
             $membre->update($data);
 
+            $champsModifies = array_keys($data);
+            $statutAChange = array_key_exists('statut', $data);
+            \App\Models\JournalActivite::enregistrer(
+                'membre.modifier',
+                $statutAChange
+                    ? "Membre modifié : {$membre->nom_complet} (statut -> {$data['statut']})"
+                    : "Membre modifié : {$membre->nom_complet}",
+                $membre,
+                ['champs' => $champsModifies]
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Membre mis à jour avec succès',
@@ -311,13 +328,22 @@ class MembreController extends Controller
     {
         try {
             $membre = Membre::findOrFail($id);
-            
+
             // Supprimer la photo
             if ($membre->photo) {
                 Storage::delete('public/' . $membre->photo);
             }
-            
+
+            $nomComplet = $membre->nom_complet;
+            $membreId = $membre->id;
             $membre->delete();
+
+            \App\Models\JournalActivite::enregistrer(
+                'membre.supprimer',
+                "Membre supprimé : {$nomComplet}",
+                null,
+                ['membre_id' => $membreId]
+            );
 
             return response()->json([
                 'success' => true,
@@ -446,6 +472,12 @@ class MembreController extends Controller
             } catch (\Exception $e) {
                 \Log::error('Erreur envoi email activation admin: ' . $e->getMessage());
             }
+
+            \App\Models\JournalActivite::enregistrer(
+                'membre.creer_acces_admin',
+                "Accès admin créé pour {$membre->nom_complet} (rôle : {$user->role_label})",
+                $user
+            );
 
             return response()->json([
                 'success' => true,
