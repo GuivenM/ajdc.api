@@ -74,6 +74,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/membres/commissions', [MembreController::class, 'commissions']);
     Route::get('/membres/commission/{nom}', [MembreController::class, 'commission']);
     Route::get('/membres/postes-bureau', [MembreController::class, 'postesBureau']);
+    Route::get('/membres/villes', [MembreController::class, 'villes']);
     Route::get('/membres/{id}', [MembreController::class, 'show']);
 
     // Événements - Routes publiques (consultation)

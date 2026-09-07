@@ -36,7 +36,10 @@ class CotisationController extends Controller
                 ], 422);
             }
 
-            $membres = Membre::actif()->orderBy('nom')->get();
+            $membres = Membre::actif()
+                ->when(request('ville'), fn($q, $ville) => $q->where('ville', $ville))
+                ->orderBy('nom')
+                ->get();
             $cotisations = Cotisation::where('mois', $mois)
                 ->get()
                 ->keyBy('membre_id');
@@ -49,6 +52,7 @@ class CotisationController extends Controller
                         'membre_id' => $membre->id,
                         'nom_complet' => $membre->nom_complet,
                         'photo_url' => $membre->photo_url,
+                        'ville' => $membre->ville,
                         'mois' => $mois,
                         'cotisation_id' => null,
                         'montant' => null,
@@ -64,6 +68,7 @@ class CotisationController extends Controller
                     'membre_id' => $membre->id,
                     'nom_complet' => $membre->nom_complet,
                     'photo_url' => $membre->photo_url,
+                    'ville' => $membre->ville,
                     'mois' => $mois,
                     'cotisation_id' => $cotisation->id ?? null,
                     'montant' => $cotisation->montant ?? self::MONTANT_DEFAUT,

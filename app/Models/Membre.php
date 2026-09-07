@@ -26,6 +26,7 @@ class Membre extends Authenticatable
         'linkedin',
         'twitter',
         'whatsapp',
+        'ville',
         'poste',
         'commission',
         'statut',
@@ -68,6 +69,38 @@ class Membre extends Authenticatable
         'Trésorier Général' => 'tresorier',
         'Trésorier Général Adjoint' => 'tresorier',
         'Chargé de Communication' => 'moderateur',
+    ];
+
+    /**
+     * Les 77 communes du Bénin (source : Wikipédia / decentralisation.gouv.bj),
+     * utilisées comme "ville" de résidence du membre — l'association ayant des
+     * canaux distincts par ville (Cotonou, Ouidah, etc.).
+     */
+    public const VILLES_BENIN = [
+        // Alibori
+        'Banikoara', 'Gogounou', 'Kandi', 'Karimama', 'Malanville', 'Ségbana',
+        // Atacora
+        'Boukoumbé', 'Cobly', 'Kérou', 'Kouandé', 'Matéri', 'Natitingou', 'Péhunco', 'Tanguiéta', 'Toucountouna',
+        // Atlantique
+        'Abomey-Calavi', 'Allada', 'Kpomassè', 'Ouidah', 'Sô-Ava', 'Toffo', 'Tori-Bossito', 'Zè',
+        // Borgou
+        'Bembéréké', 'Kalalé', "N'Dali", 'Nikki', 'Parakou', 'Pèrèrè', 'Sinendé', 'Tchaourou',
+        // Collines
+        'Bantè', 'Dassa-Zoumè', 'Glazoué', 'Ouèssè', 'Savalou', 'Savè',
+        // Couffo
+        'Aplahoué', 'Djakotomey', 'Dogbo', 'Klouékanmè', 'Lalo', 'Toviklin',
+        // Donga
+        'Bassila', 'Copargo', 'Djougou', 'Ouaké',
+        // Littoral
+        'Cotonou',
+        // Mono
+        'Athiémé', 'Bopa', 'Comè', 'Grand-Popo', 'Houéyogbé', 'Lokossa',
+        // Ouémé
+        'Adjarra', 'Adjohoun', 'Aguégués', 'Akpro-Missérété', 'Avrankou', 'Bonou', 'Dangbo', 'Porto-Novo', 'Sèmè-Kpodji',
+        // Plateau
+        'Adja-Ouèrè', 'Ifangni', 'Kétou', 'Pobè', 'Sakété',
+        // Zou
+        'Abomey', 'Agbangnizoun', 'Bohicon', 'Covè', 'Djidja', 'Ouinhi', 'Za-Kpota', 'Zagnanado', 'Zogbodomey',
     ];
 
     /**

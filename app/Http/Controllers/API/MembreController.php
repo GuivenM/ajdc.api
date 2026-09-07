@@ -104,6 +104,7 @@ class MembreController extends Controller
     {
         try {
             $membres = Membre::with('compteAdmin')
+                ->when(request('ville'), fn($q, $ville) => $q->where('ville', $ville))
                 ->orderByRaw('CASE
                     WHEN poste IS NOT NULL THEN 1
                     WHEN commission IS NOT NULL THEN 2
@@ -191,6 +192,7 @@ class MembreController extends Controller
                 'linkedin' => 'nullable|url|max:255',
                 'twitter' => 'nullable|url|max:255',
                 'whatsapp' => 'nullable|string|max:20',
+                'ville' => 'nullable|in:' . implode(',', Membre::VILLES_BENIN),
                 'poste' => 'nullable|string|max:255',
                 'commission' => 'nullable|string|max:255'
             ]);
@@ -269,6 +271,7 @@ class MembreController extends Controller
                 'linkedin' => 'nullable|url|max:255',
                 'twitter' => 'nullable|url|max:255',
                 'whatsapp' => 'nullable|string|max:20',
+                'ville' => 'nullable|in:' . implode(',', Membre::VILLES_BENIN),
                 'poste' => 'nullable|string|max:255',
                 'commission' => 'nullable|string|max:255',
                 'statut' => 'sometimes|in:actif,inactif'
@@ -401,6 +404,18 @@ class MembreController extends Controller
         return response()->json([
             'success' => true,
             'data' => $postes
+        ]);
+    }
+
+    /**
+     * Les 77 communes du Bénin, pour le select "Ville" du formulaire membre
+     * (et le filtre des pages Membres/Cotisations).
+     */
+    public function villes()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => Membre::VILLES_BENIN,
         ]);
     }
 
