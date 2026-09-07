@@ -89,7 +89,7 @@ class AdhesionController extends Controller
                 'date_naissance' => 'required|date|before:today',
                 'lieu_naissance' => 'required|string|max:255',
                 'adresse' => 'required|string',
-                'ville' => 'required|string|max:255',
+                'ville' => 'required|in:' . implode(',', Membre::VILLES_BENIN),
                 'situation_matrimoniale' => 'required|in:marie,divorce,union_libre,celibataire,veuf',
                 'nombre_enfants_charge' => 'required|integer|min:0',
 
@@ -288,6 +288,7 @@ class AdhesionController extends Controller
                         'prenom' => $adhesion->prenom,
                         'photo' => $adhesion->photo,
                         'whatsapp' => $adhesion->telephone,
+                        'ville' => $adhesion->ville,
                         'statut' => 'en_attente_paiement',
                         'email' => $adhesion->email,
                     ]
